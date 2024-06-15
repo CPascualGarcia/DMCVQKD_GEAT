@@ -15,11 +15,8 @@ As an output, the code returns the asymptotic secret key rate at Distances from 
 together with the optimal state (which is necessary for the finite analysis).
 """
 
-
-push!(LOAD_PATH,"Ket/")
-push!(LOAD_PATH,"ConicQKD/")
-using ConicQKD
-using Ket
+using ConicQKD # ] add https://github.com/araujoms/ConicQKD.jl.git
+using Ket # ] add https://github.com/araujoms/Ket.jl.git
 
 
 using  SpecialFunctions
@@ -298,7 +295,7 @@ function CompleteCode(::Type{T},Nc::Integer,δ::T,Δ::T,f::T,D::Real,NAMES::Vect
 
         HτAB = Hvec(τAB)
         for pvar in HτAB
-            @printf(FILE_PRIMAL,", %.12e",pvar)
+            @printf(FILE_PRIMAL,", %.16e",pvar)
         end
         @printf(FILE_PRIMAL,"\n")
         close(FILE_PRIMAL)

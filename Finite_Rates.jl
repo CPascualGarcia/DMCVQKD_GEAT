@@ -20,7 +20,7 @@ the usual 1e-10 value.
 
 
 push!(LOAD_PATH,"Ket/")
-using  Ket
+using  Ket # ] add https://github.com/araujoms/Ket.jl.git
 using  SpecialFunctions
 using  LinearAlgebra
 using  DoubleFloats
@@ -196,14 +196,13 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
             return FKRateMax
         end
 
-        
-        A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
-
-        # We fix a testing ratio here (optimization ongoing)
-        pK = 1-0.04 # 4% of the rounds for testing
+        # We fix a testing ratio here (optimization pending)
+        pK = T(1-0.05) # 5% of the rounds for testing
         b  = - log(T(1-pK))/log(Nrounds)
 
         ###########################################################
+        # 
+        # A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
         # Here we optimize the scaling b wrt the value of b
         # F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
         #         +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
@@ -214,11 +213,8 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Δ_tol = Margin_tol(N,b,p_sim,Dvars,ϵ_PE)
 
         # Finite-size corrections
-        Zero = Rate*N^(-b) + Δ_tol
+        Zero = Rate*(1-pK) + Δ_tol
 
-        # GEAT → V
-        Var = Variance(Dvars,T(pK))*T(pK)^2
-        One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
         K_exp = (a-1)*(2*log2(dO)+MaxMin*pK)/(2-a)
@@ -228,6 +224,15 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         # 2nd order correction
         Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
+
+        # Skip calculations of the variance if the rate is already zero
+        if Rate - Zero - One - Two - Three < 0.0
+            continue
+        end
+
+        # GEAT → V
+        Var = Variance(Dvars,pK)*(pK^2)
+        One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # Final key rate
         FKRate = Rate - Zero - One - Two - Three
@@ -415,4 +420,3 @@ end
 
 ######################## TO DO
 # XXX Verify the modification of the Variance and include it in the code
-# XXX Multiply the MaxMin by pK
