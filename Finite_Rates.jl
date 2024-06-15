@@ -404,7 +404,7 @@ function Variance(Dvars::AbstractFloat,pK::AbstractFloat)
     Max   = maximum(Dvars)
     coeff1 = [(Max - d) for d in Dvars]
 
-    Objf = (sum([prob[c]*coeff[c]^2 for c in range(length(Dvars))])/(1-pK) 
+    Objf = (sum([prob[c]*coeff1[c]^2 for c in range(length(Dvars))])/(1-pK) 
             - (Max - sum([prob[c]*Dvars[c] for c in range(length(Dvars))]))^2)
 
     @objective(Variance,Min,Objf)
