@@ -216,7 +216,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         One = A*(sqrt(T(2)+ T(N^b) *MaxMin^2)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        # Varf  = Variance(Dvars,g0,1-Nrounds^(-b)) 
+        # Varf  = Variance(Dvars,g0)*(1-Nrounds^(-b))
         K_exp = (a-1)*(2*log2(dO)+MaxMin)/(2-a)
         K_num = log(2^(2*log2(dO) + MaxMin) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
@@ -385,7 +385,10 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance(Dvars::AbstractFloat,g0::AbstractFloat,pK::AbstractFloat)
+function Variance(Dvars::AbstractFloat,g0::AbstractFloat)
+    # NOTE THAT the actual optimization of the variance includes
+    # the pre-factor pK. Here we remove it for convenience, and 
+    # add it in the main text
 
     Variance = GenericModel{T}()
     set_optimizer(Variance, Hypatia.Optimizer{T})
@@ -394,7 +397,7 @@ function Variance(Dvars::AbstractFloat,g0::AbstractFloat,pK::AbstractFloat)
     @constraint(prob.>=0)
     @constraint(sum(prob)==1)
 
-    coeff = [pK*(g0 + d) for d in Dvars]
+    coeff = [(g0 + d) for d in Dvars]
 
     Objf = (sum([prob[d]*coeff[d]^2 for x in range(length(Dvars))]) 
             - sum([prob[d]*coeff[d] for x in range(length(Dvars))])^2)
