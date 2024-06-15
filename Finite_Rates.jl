@@ -403,8 +403,8 @@ function Variance(Dvars::AbstractFloat,pK::AbstractFloat)
     set_optimizer(Variance, Hypatia.Optimizer{T})
 
     @variable(prob[1:length(Dvars)])
-    @constraint(prob.>=0)
-    @constraint(sum(prob)==1)
+    @constraint(Variance,prob.>=0)
+    @constraint(Variance,sum(prob)==1)
 
     Max   = maximum(Dvars)
     coeff1 = [(Max - d) for d in Dvars]
