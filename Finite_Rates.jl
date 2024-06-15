@@ -213,6 +213,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         One = A*(sqrt(T(2)+ T(N^b) *MaxMin^2)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
+        # Varf  = Variance(Dvars,1-Nrounds^(-b)) 
         K_exp = (a-1)*(2*log2(dO)+MaxMin)/(2-a)
         K_num = log(2^(2*log2(dO) + MaxMin) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
@@ -377,9 +378,11 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     close(FILE_STATES)
 end
 
+#########################################################
+#################### IN PROGRESS ########################
+#########################################################
 
-function Variance(Y::AbstractFloat,c,Nrounds)
-    pK = 1 - Nrounds^(-c)
+function Variance(Y::AbstractFloat,pK::AbstractFloat)
 
     Variance = GenericModel{T}()
     set_optimizer(Variance, Hypatia.Optimizer{T})
