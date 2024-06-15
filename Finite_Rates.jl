@@ -151,7 +151,11 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
     @unpack ϵ,ϵ_PE,ϵ_PA,ϵ_EC = Epsilons
 
     # Quick Check
-    if MaxMin ≥ 200 || Rate ≤ 0
+    if MaxMin ≥ 400 
+        @printf("WARNING! MaxMin too high! %.3f \n",MaxMin)
+    end
+    if Rate ≤ 0
+        @printf("WARNING! Negative asymptotic rate \n")
         FKRate_Max = T(0)
         return FKRate_Max
     end
@@ -288,7 +292,6 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     Epsilons = Epsilon_Coeffs(T(1e-10),T(1e-10),T(1e-10),T(1e-10))
 
     # Prepare file names
-    
     NAME_RATE = "CPrimal_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
     NAME_OUT  = "CFiniteRates_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
 
@@ -375,4 +378,23 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 end
 
 
+function Variance(Y::AbstractFloat,c,Nrounds)
+    pK = 1 - Nrounds^(-c)
 
+    Variance = GenericModel{T}()
+    set_optimizer(Variance, Hypatia.Optimizer{T})
+
+    @variable(prob[1:length(Y)])
+    @constraint(prob.>=0)
+    @constraint(sum(prob)==1)
+
+    coeff = [pK*(g0 + y) for y in Y]
+
+    Objf = (sum([prob[x]*coeff[x]^2 for x in range(length(Y))]) 
+            - sum([prob[x]*coeff[x] for x in range(length(Y))])^2)
+
+    @objective(Variance,Min,Objf)
+    optimize!(Objf)
+
+    return value(Objf)
+end
