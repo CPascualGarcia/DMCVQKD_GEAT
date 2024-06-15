@@ -72,22 +72,6 @@ function Hvec(H::AbstractMatrix)
     return Hv
 end
 
-function Hmat(v::AbstractArray)
-    n   = Int(sqrt(length(v)))
-    ind = BitMatrix(triu(ones(n,n),1))
-
-    H  = zeros(ComplexF64,n,n)
-    tn = Int((n^2-n)/2)
-    vR = v[n+1:n+tn]
-    vI = v[n+tn+1:end]
-
-    H[ind] = (vR[:]+im*vI[:])/sqrt(2)
-    H += diagm(v[1:n]) +H'
-    
-    return H
-
-end
-
 
 function alice_part(α::Real)
     ρ = Hermitian(ones(Complex{typeof(α)},4,4))
