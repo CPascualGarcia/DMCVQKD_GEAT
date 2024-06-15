@@ -2,8 +2,8 @@
 GENERAL INFORMATION
 
 This code calculates asymptotic secret key rates under the cutoff assumption for the
-QPSK protocol (prepare-and-measure). The resulting states are also later processed 
-for the finite key analysis in FKRates.jl.
+QPSK protocol (prepare-and-measure) based on coarse-grained probabilities. The resulting 
+states are also later processed for the finite key analysis in FKRates.jl.
 
 The code is executed via the function Instance(.), which takes as input
     Nc  - Value of the cutoff, typically ≥10
