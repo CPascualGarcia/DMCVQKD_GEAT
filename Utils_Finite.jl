@@ -8,7 +8,7 @@ function integrand(vars,pars)
     return γ*exp(-abs2(γ*exp(im*θ)-sqrt(η)*im^x*α)/(1+η*ξ/2))
 end
 
-function integrate(bounds,pars)
+function integrate(bounds,pars,T::DataType=Float64)
     problem = Integrals.IntegralProblem(integrand,bounds,pars)
     sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = Base.rtoldefault(T), abstol = Base.rtoldefault(T))
     return sol.u
@@ -24,14 +24,14 @@ function simulated_probabilities(::Type{T}, δ::Real, Δ::Real, α::Real, D::Int
         pars = [ξ, η, x, α]
         for z = 0:3
             bounds = ([T(0), T(π)*(2*z-1)/4], [T(δ), T(π)*(2*z+1)/4])
-            p_sim[x+1,z+1] = integrate(bounds,pars)
+            p_sim[x+1,z+1] = integrate(bounds,pars,T)
         end
         #z = 4
         bounds = ([T(δ), T(0)], [T(Δ), 2*T(π)])
-        p_sim[x+1,5] = integrate(bounds,pars)
+        p_sim[x+1,5] = integrate(bounds,pars,T)
         #z = 5
         bounds = ([T(Δ), T(0)], [T(Inf), 2*T(π)])
-        p_sim[x+1,6] = integrate(bounds,pars)
+        p_sim[x+1,6] = integrate(bounds,pars,T)
     end
     p_sim /= 4*T(π)*(1+η*ξ/2)
     return p_sim
@@ -75,6 +75,59 @@ function alice_part(α::Real)
     ρ *= 0.25
 end
 
+function sinkpi4(::Type{T}, k::Integer) where {T} #computes sin(k*π/4) with high precision
+    if mod(k,4) == 0
+        return 0
+    else
+        signal = (-1)^div(k,4,RoundDown)
+        if mod(k,2) == 0
+            return signal
+        else
+            return signal/sqrt(T(2))
+        end
+    end
+end
+
+function key_basis(::Type{T}, Nc::Integer) where {T}
+    R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:3]
+    for z = 0:3
+        for n=0:Nc
+            for m=n:Nc
+                if n == m
+                    R[z+1][n+1,m+1] = T(1)/4
+                else
+                    angular = 2*im^(mod(z*(n-m),4))*sinkpi4(T,n-m)/(n-m)
+                    radial = gamma(1 + T(n+m)/2)/(2*T(π)*sqrt(gamma(T(1+n))*gamma(T(1+m))))                    
+                    R[z+1].data[n+1,m+1] = angular*radial
+                end
+            end
+        end
+    end
+    return R
+end
+
+
+function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T}
+    R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:5]
+    for z = 0:3
+        for n=0:Nc
+            for m=n:Nc
+                if n == m
+                    R[z+1][n+1,m+1] = (gamma(T(1+n)) - gamma(T(1+n),δ^2))/(4*gamma(T(1+n)))
+                else
+                    angular = 2*im^(mod(z*(n-m),4))*sinkpi4(T,n-m)/(n-m)
+                    radial = (gamma(1 + T(n+m)/2) - gamma(1 + T(n+m)/2,δ^2))/(2*T(π)*sqrt(gamma(T(1+n))*gamma(T(1+m))))                    
+                    R[z+1].data[n+1,m+1] = angular*radial
+                end
+            end
+        end
+    end
+    for n=0:Nc
+        R[5][n+1,n+1] = (gamma(T(1+n),δ^2) - gamma(T(1+n),Δ^2))/gamma(T(1+n))
+        R[6][n+1,n+1] = gamma(T(1+n),Δ^2)/gamma(T(1+n))
+    end
+    return R
+end
 
 
 function constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::Real, Δ::Real, Nc::Integer) where {T}
@@ -115,7 +168,7 @@ function EC_cost(α::Real,D::Integer,f::Real,T::DataType=Float64)
         pars = [ξ, η, x, α]
         for z=0:3
             bounds        = ([T(0),T(π)*(2*z-1)/4],[T(Inf),T(π)*(2*z+1)/4])
-            p_EC[x+1,z+1] = integrate(bounds,pars)
+            p_EC[x+1,z+1] = integrate(bounds,pars,T)
         end
     end
     p_EC /= T(π)*(1+η*ξ/2)
