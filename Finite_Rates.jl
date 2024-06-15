@@ -394,7 +394,7 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance(Dvars::AbstractFloat,pK::AbstractFloat)
+function Variance(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
@@ -402,7 +402,7 @@ function Variance(Dvars::AbstractFloat,pK::AbstractFloat)
     Variance = GenericModel{T}()
     set_optimizer(Variance, Hypatia.Optimizer{T})
 
-    @variable(prob[1:length(Dvars)])
+    @variable(Variance,prob[1:length(Dvars)])
     @constraint(Variance,prob.>=0)
     @constraint(Variance,sum(prob)==1)
 
