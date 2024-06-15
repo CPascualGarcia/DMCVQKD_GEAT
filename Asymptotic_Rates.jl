@@ -196,7 +196,7 @@ function zkraus(Nc::Integer)
 end
 
 
-function EC_cost(::DataType{T},α::T,D::Integer,f::T) where {T}
+function EC_cost(::Type{T},α::T,D::Integer,f::T) where {T}
     α_att = T(0.2) 
     α_eff = T(0)  
     ξ     = T(0.01)
@@ -278,7 +278,7 @@ function CompleteCode(::Type{T},Nc::Integer,δ::T,Δ::T,f::T,D::Real,NAMES::Vect
     
     # Compute the EC cost H(B|A) + EC inefficiency
     α   = T(optimal_amplitude(D,f))
-    hba = EC_cost(α,D,f,T)
+    hba = EC_cost(T,α,D,f)
 
     # Print data
     @printf("ObjVal:  %.6f \n",dual_ObjF)
