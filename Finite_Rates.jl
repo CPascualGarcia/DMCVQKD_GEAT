@@ -17,7 +17,7 @@ import Hypatia.Cones
 import Convex
 import Integrals
 
-include("Utils_FKRates.jl")
+include("Utils_Finite.jl")
 
 
 @with_kw struct InputDual{T}
