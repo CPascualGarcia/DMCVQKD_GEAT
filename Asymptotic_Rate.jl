@@ -285,7 +285,7 @@ end
 
 
 
-function hae(::Type{T}, Nc::Integer, δ::Real, Δ::Real, D::Integer,minutes::Real) where {T}
+function hbe(::Type{T}, Nc::Integer, δ::Real, Δ::Real, D::Integer,minutes::Real) where {T}
     δ = T(δ)
     Δ = T(Δ)
     α = T(optimal_amplitude(D))
@@ -378,10 +378,6 @@ function hae(::Type{T}, Nc::Integer, δ::Real, Δ::Real, D::Integer,minutes::Rea
     return dual_vars, dual_linear, value.(τAB), dual_objective_value(model), Ω, v  # objective_value(model) 
 end
 
-#hae(4,1,2,70) = 1.9595173004591733, 559.073 seconds
-#hae(4,1,2,70) = 1.959578468709351, 113.778 seconds
-
-
 function Instance(Nc::Integer,δ::Real,Δ::Real,minutes::Real,T::DataType=Float64)
 
     ### Friendly reminder of basic parameters
@@ -431,7 +427,7 @@ end
 function CompleteCode(Nc::Integer,δ::Real,Δ::Real,D::Real,minutes::Real,NAMES::Vector{String}=[""],T::DataType=Float64)
 
     # Compute the relative entropy H(B|E)
-    dual_vars, dual_linear, τAB, dual_ObjF, Ω, v = hae(T,Nc,δ,Δ,D,minutes)
+    dual_vars, dual_linear, τAB, dual_ObjF, Ω, v = hbe(T,Nc,δ,Δ,D,minutes)
 
     # Compute the EC cost H(B|A) at the Shannon limit
     α   = T(optimal_amplitude(D))
@@ -478,6 +474,3 @@ function CompleteCode(Nc::Integer,δ::Real,Δ::Real,D::Real,minutes::Real,NAMES:
     end
 
 end
-
-
-# Nc=3;δ=2.0;Δ=4.9;D=10;minutes=5;T=Float64;
