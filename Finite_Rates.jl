@@ -198,7 +198,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         # We fix a testing ratio here (optimization pending)
         pK = T(1-0.05) # 5% of the rounds for testing
-        b  = - log(T(1-pK))/log(Nrounds)
+        b  = - log(T(1-pK))/log(N)
 
         ###########################################################
         # 
@@ -226,7 +226,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
 
         # Skip calculations of the variance if the rate is already zero
-        if Rate - Zero - One - Two - Three < 0.0
+        if Rate - Zero - Two - Three < 0.0
             continue
         end
 
