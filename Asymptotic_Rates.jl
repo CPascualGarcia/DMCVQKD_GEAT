@@ -332,7 +332,7 @@ function Instance(Nc::Integer,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     FILE_RATE = open(NAMES[1],"a")
     @printf(FILE_RATE,"xi, f, Nc, delta, Delta \n")
     @printf(FILE_RATE,"0.01, %.2f, %d, %.2f, %.2f  \n",f,Nc,δ,Δ)
-    @printf(FILE_RATE,"D, amp, R_dl, deltaEC, Omega \n")
+    @printf(FILE_RATE,"D, amp, R_dl, deltaEC \n")
     close(FILE_RATE)
 
     FILE_PRIMAL = open(NAMES[2],"a")
