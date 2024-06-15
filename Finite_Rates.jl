@@ -46,7 +46,7 @@ include("Utils_Finite.jl")
     PE_AB::Vector{Matrix{Complex{T}}}
     Λ_AB ::Vector{Matrix{Complex{T}}}
     λ_A  ::Vector{T}
-    ∇r::Hermitian{Complex{T},Matrix{Complex{T}}}
+    ∇r   ::Hermitian{Complex{T},Matrix{Complex{T}}}
 end
 
 @with_kw struct OutputDual{T<:AbstractFloat}
@@ -93,8 +93,12 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
         @constraint(Dual_FW, -w[dim_p+kk]≤z[kk])
     end
 
+    # Constraint of the perturbation
+    # @constraint(Dual_FW,γ≥norm(y))
+    # η = 1e-5
+
     # Objective function
-    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w))
+    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w)) # - γ*η
 
     # Perform optimization
     optimize!(Dual_FW)
