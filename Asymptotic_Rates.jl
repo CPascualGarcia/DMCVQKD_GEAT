@@ -9,8 +9,10 @@ The code is executed via the function Instance(.), which takes as input
     Nc  - Value of the cutoff, typically ≥10
     δ,Δ - Parameters of the modulation, usually 2 and ≥ 4 respectively
     f   - Error correction efficienty, take 0 for the Shannon limit or > 0 otherwise
-    minutes - Time limit for the conic program (not usually necessary)
     T   - DataType. Usually Float64 for distances below 100 km, and Double64 otherwise
+
+As an output, the code returns the asymptotic secret key rate at Distances from 0 to 200 km
+together with the optimal state (which is necessary for the finite analysis).
 """
 
 
@@ -22,7 +24,7 @@ using Ket
 
 using  SpecialFunctions
 using  LinearAlgebra
-#using  DoubleFloats
+using  DoubleFloats
 using  JuMP
 using  Printf
 import Hypatia
