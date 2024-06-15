@@ -51,6 +51,7 @@ end
 
 @with_kw struct OutputDual{T<:AbstractFloat}
     Dvars ::Array{T}
+    g0    ::T
     MaxMin::T
     Rate  ::T
     Hba   ::T
@@ -100,19 +101,20 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     optimize!(Dual_FW)
 
     # Extract numerical values
-    Y = value.(y)
-    Z = value.(z)
-    W = value.(w)
+    Y  = value.(y)
+    Z  = value.(z)
+    W  = value.(w)
 
     MaxMin = maximum(Y) - minimum(Y)
 
     ObjVal = Y·p_sim'[:] + Z·λ_A - ε*sum(W)
+    g0     = Z·λ_A - ε*sum(W)
 
     Hba  = EC_cost(α,D,0.0,T)
     Rate = ObjVal - Hba
 
 
-    DualData = OutputDual(Y,MaxMin,Rate,Hba)
+    DualData = OutputDual(Y,g0,MaxMin,Rate,Hba)
     return DualData
 end
 
@@ -145,6 +147,7 @@ end
 function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},DualData::OutputDual{T}) where {T<:AbstractFloat}
     @unpack p_sim  = InDual
     @unpack Dvars  = DualData
+    @unpack g0     = DualData
     @unpack Rate   = DualData
     @unpack MaxMin = DualData
     @unpack Hba    = DualData
@@ -213,7 +216,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         One = A*(sqrt(T(2)+ T(N^b) *MaxMin^2)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        # Varf  = Variance(Dvars,1-Nrounds^(-b)) 
+        # Varf  = Variance(Dvars,g0,1-Nrounds^(-b)) 
         K_exp = (a-1)*(2*log2(dO)+MaxMin)/(2-a)
         K_num = log(2^(2*log2(dO) + MaxMin) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
@@ -382,19 +385,19 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance(Y::AbstractFloat,pK::AbstractFloat)
+function Variance(Dvars::AbstractFloat,g0::AbstractFloat,pK::AbstractFloat)
 
     Variance = GenericModel{T}()
     set_optimizer(Variance, Hypatia.Optimizer{T})
 
-    @variable(prob[1:length(Y)])
+    @variable(prob[1:length(Dvars)])
     @constraint(prob.>=0)
     @constraint(sum(prob)==1)
 
-    coeff = [pK*(g0 + y) for y in Y]
+    coeff = [pK*(g0 + d) for d in Dvars]
 
-    Objf = (sum([prob[x]*coeff[x]^2 for x in range(length(Y))]) 
-            - sum([prob[x]*coeff[x] for x in range(length(Y))])^2)
+    Objf = (sum([prob[d]*coeff[d]^2 for x in range(length(Dvars))]) 
+            - sum([prob[d]*coeff[d] for x in range(length(Dvars))])^2)
 
     @objective(Variance,Min,Objf)
     optimize!(Objf)
