@@ -398,3 +398,7 @@ function Variance(Y::AbstractFloat,c,Nrounds)
 
     return value(Objf)
 end
+
+######################## TO DO
+# XXX Verify the modification of the Variance and include it in the code
+# XXX Multiply the MaxMin by pK
