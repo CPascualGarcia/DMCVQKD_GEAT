@@ -75,73 +75,7 @@ function alice_part(α::Real)
     ρ *= 0.25
 end
 
-function sinkpi4(::Type{T}, k::Integer) where {T} #computes sin(k*π/4) with high precision
-    if mod(k,4) == 0
-        return 0
-    else
-        signal = (-1)^div(k,4,RoundDown)
-        if mod(k,2) == 0
-            return signal
-        else
-            return signal/sqrt(T(2))
-        end
-    end
-end
 
-function key_basis(::Type{T}, Nc::Integer) where {T}
-    R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:3]
-    for z = 0:3
-        for n=0:Nc
-            for m=n:Nc
-                if n == m
-                    R[z+1][n+1,m+1] = T(1)/4
-                else
-                    angular = 2*im^(mod(z*(n-m),4))*sinkpi4(T,n-m)/(n-m)
-                    radial = gamma(1 + T(n+m)/2)/(2*T(π)*sqrt(gamma(T(1+n))*gamma(T(1+m))))                    
-                    R[z+1].data[n+1,m+1] = angular*radial
-                end
-            end
-        end
-    end
-    return R
-end
-
-
-function test_basis(::Type{T}, δ::Real, Δ::Real, Nc::Integer) where {T}
-    R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:5]
-    for z = 0:3
-        for n=0:Nc
-            for m=n:Nc
-                if n == m
-                    R[z+1][n+1,m+1] = (gamma(T(1+n)) - gamma(T(1+n),δ^2))/(4*gamma(T(1+n)))
-                else
-                    angular = 2*im^(mod(z*(n-m),4))*sinkpi4(T,n-m)/(n-m)
-                    radial = (gamma(1 + T(n+m)/2) - gamma(1 + T(n+m)/2,δ^2))/(2*T(π)*sqrt(gamma(T(1+n))*gamma(T(1+m))))                    
-                    R[z+1].data[n+1,m+1] = angular*radial
-                end
-            end
-        end
-    end
-    for n=0:Nc
-        R[5][n+1,n+1] = (gamma(T(1+n),δ^2) - gamma(T(1+n),Δ^2))/gamma(T(1+n))
-        R[6][n+1,n+1] = gamma(T(1+n),Δ^2)/gamma(T(1+n))
-    end
-    return R
-end
-
-
-function optimal_amplitude(D::Integer,f::Real)
-    if f==0.05
-        amplitudes = [1.05, 1.03, 1.01, 0.99, 0.97, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90, 0.89, 0.88, 0.87, 0.86, 0.85, 0.85, 0.84, 0.83, 0.82, 0.81, 0.81, 0.80, 0.80, 0.79, 0.79, 0.79, 0.78, 0.78, 0.77, 0.76, 0.75, 0.75, 0.74, 0.74, 0.73, 0.73, 0.73, 0.72, 0.72, 0.71]
-        return D <= 40 ? amplitudes[D+1] : 0.7
-    elseif f==0.1
-        amplitudes = [1.07, 1.02, 1.01, 1.00, 0.99, 0.98, 0.97, 0.96, 0.94, 0.92, 0.90, 0.89, 0.88, 0.87, 0.86, 0.85, 0.84, 0.83, 0.82, 0.81, 0.80, 0.79, 0.79, 0.78, 0.77, 0.76, 0.76, 0.76, 0.75, 0.75, 0.74, 0.73, 0.73, 0.72, 0.72, 0.71]
-        return D <= 35 ? amplitudes[D+1] : 0.71
-    else # Default to f = 0
-        amplitudes = [1.07, 1.05, 1.03, 1.01, 0.99, 0.96, 0.93, 0.90, 0.87, 0.85, 0.85, 0.85, 0.84, 0.84, 0.84, 0.84, 0.83, 0.83, 0.82, 0.82, 0.81, 0.81, 0.80, 0.80, 0.79, 0.79, 0.78, 0.78, 0.77, 0.77, 0.77, 0.77, 0.77, 0.76, 0.76, 0.75, 0.75, 0.75, 0.74, 0.74, 0.74, 0.74, 0.74, 0.74, 0.74, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.72, 0.71, 0.71, 0.71, 0.71, 0.71, 0.71]
-        return D <= 70 ? amplitudes[D+1] : 0.71
-    end
-end  
 
 function constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::Real, Δ::Real, Nc::Integer) where {T}
     R_B = test_basis(T,δ,Δ,Nc)
