@@ -51,7 +51,6 @@ end
 
 @with_kw struct OutputDual{T<:AbstractFloat}
     Dvars ::Array{T}
-    Varf  ::T
     MaxMin::T
     Rate  ::T
     Hba   ::T
@@ -106,16 +105,16 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     W  = value.(w)
 
     ObjVal = Y·p_sim'[:] + Z·λ_A - ε*sum(W)
-    g0     = Z·λ_A - ε*sum(W)
+    # g0     = Z·λ_A - ε*sum(W)
 
     MaxMin = maximum(Y) - minimum(Y)
-    Varf   = Variance(Dvars,g0)
+    # Varf   = Variance(Dvars,g0)
 
     Hba  = EC_cost(α,D,0.0,T)
     Rate = ObjVal - Hba
 
 
-    DualData = OutputDual(Y,Varf,MaxMin,Rate,Hba)
+    DualData = OutputDual(Y,MaxMin,Rate,Hba)
     return DualData
 end
 
@@ -148,7 +147,6 @@ end
 function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},DualData::OutputDual{T}) where {T<:AbstractFloat}
     @unpack p_sim  = InDual
     @unpack Dvars  = DualData
-    @unpack Varf   = DualData
     @unpack MaxMin = DualData
     @unpack Rate   = DualData
     @unpack Hba    = DualData
@@ -201,12 +199,17 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         
         A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
 
-        # Here we optimize the scaling b wrt the value of b
-        F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
-                +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
-        b = find_zero(F, (0.0,0.5))
+        # We fix a testing ratio here (optimization ongoing)
+        pK = 1-0.04 # 4% of the rounds for testing
+        b  = - log(T(1-pK))/log(Nrounds)
 
-        #############
+        ###########################################################
+        # Here we optimize the scaling b wrt the value of b
+        # F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
+        #         +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
+        # b = find_zero(F, (0.0,0.5))
+
+        #################################################################
 
         Δ_tol = Margin_tol(N,b,p_sim,Dvars,ϵ_PE)
 
@@ -214,12 +217,12 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Zero = Rate*N^(-b) + Δ_tol
 
         # GEAT → V
-        One = A*(sqrt(T(2)+ T(N^b) *MaxMin^2)+log2(2*dO^2+1))^2
+        Var = Variance(Dvars,T(pK))*T(pK)^2
+        One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        # Var  = Varf*(1-Nrounds^(-b))
-        K_exp = (a-1)*(2*log2(dO)+MaxMin)/(2-a)
-        K_num = log(2^(2*log2(dO) + MaxMin) + exp(T(2)))^3 * 2^(K_exp)
+        K_exp = (a-1)*(2*log2(dO)+MaxMin*pK)/(2-a)
+        K_num = log(2^(2*log2(dO) + MaxMin*pK) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
         Two   = (K_num*(2-a)*(a-1)^2)/K_den  
 
@@ -386,7 +389,7 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance(Dvars::AbstractFloat,g0::AbstractFloat)
+function Variance(Dvars::AbstractFloat,pK::AbstractFloat)
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
@@ -398,10 +401,11 @@ function Variance(Dvars::AbstractFloat,g0::AbstractFloat)
     @constraint(prob.>=0)
     @constraint(sum(prob)==1)
 
-    coeff = [(g0 + d) for d in Dvars]
+    Max   = maximum(Dvars)
+    coeff1 = [(Max - d) for d in Dvars]
 
-    Objf = (sum([prob[d]*coeff[d]^2 for x in range(length(Dvars))]) 
-            - sum([prob[d]*coeff[d] for x in range(length(Dvars))])^2)
+    Objf = (sum([prob[c]*coeff[c]^2 for c in range(length(Dvars))])/(1-pK) 
+            - (Max - sum([prob[c]*Dvars[c] for c in range(length(Dvars))]))^2)
 
     @objective(Variance,Min,Objf)
     optimize!(Objf)
