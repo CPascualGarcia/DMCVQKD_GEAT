@@ -117,7 +117,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     ObjVal = Y·p_sim'[:] + Z·λ_A - ε*sum(W)
     # g0     = Z·λ_A - ε*sum(W)
 
-    MaxMin = maximum(Y) - minimum(Y)
+    MaxMin  = maximum(Y) - minimum(Y)
 
     Hba  = EC_cost(α,D,0.0,T)
     Rate = ObjVal - Hba
@@ -171,6 +171,8 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         return FKRate_Max
     end
 
+    # Protocol-respecting Min_f and corresponding MaxMinf
+    MaxMinf = maximum(Dvars) - ProtResp_Min_f(T,Dvars)
 
     #  Function Xi(x)
     if ϵ^2 < eps(T)
@@ -233,8 +235,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        K_exp = (a-1)*(2*log2(dO)+MaxMin*pK)/(2-a)
-        K_num = log(2^(2*log2(dO) + MaxMin*pK) + exp(T(2)))^3 * 2^(K_exp)
+        # XXX Substitute here with MaxMinf
+        K_exp = (a-1)*(2*log2(dO)+MaxMinf*pK)/(2-a)
+        K_num = log(2^(2*log2(dO) + MaxMinf*pK) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
         Two   = (K_num*(2-a)*(a-1)^2)/K_den  
 
@@ -407,7 +410,7 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Varian_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
+function Varian_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
@@ -434,7 +437,7 @@ function Varian_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     return value(Objf)
 end
 
-function ProtResp_Min_f(Y)
+function ProtResp_Min_f(::Type{T},Dvars::Array{T}) where {T}
     """
     Note that for this minimization we do not include
     neither the constant part of the min-tradeoff function
@@ -452,8 +455,8 @@ function ProtResp_Min_f(Y)
     @constraint(Min_f,sum(prob[3,:])==T(1/4))
     @constraint(Min_f,sum(prob[4,:])==T(1/4))
 
-    @objective(Min_f,Min,Y·prob'[:])
+    @objective(Min_f,Min,Dvars·prob'[:])
     optimize!(Min_f)
 
-    return value(Y·prob'[:])
+    return value(Dvars·prob'[:])
 end
