@@ -426,10 +426,7 @@ function Varian_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     Objf = (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
             - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2)
 
-    @objective(Variance_f,
-        Min,
-        (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
-        - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2))
+    @objective(Variance_f,Min,Objf)
     
     optimize!(Variance_f)
     solution_summary(Variance_f; verbose=true)
@@ -437,5 +434,26 @@ function Varian_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     return value(Objf)
 end
 
-######################## TO DO
-# XXX Verify the modification of the Variance and include it in the code
+function ProtResp_Min_f(Y)
+    """
+    Note that for this minimization we do not include
+    neither the constant part of the min-tradeoff function
+    (cancels out with the one of the maximum), nor the
+    pre-factor pK (will be added later and is not needed here)
+    """ 
+
+    Min_f = GenericModel{T}()
+    set_optimizer(Min_f, Hypatia.Optimizer{T})
+
+    @variable(Min_f,prob[1:4,1:6])
+    @constraint(Min_f,prob.>=0)
+    @constraint(Min_f,sum(prob[1,:])==T(1/4))
+    @constraint(Min_f,sum(prob[2,:])==T(1/4))
+    @constraint(Min_f,sum(prob[3,:])==T(1/4))
+    @constraint(Min_f,sum(prob[4,:])==T(1/4))
+
+    @objective(Min_f,Min,Y·prob'[:])
+    optimize!(Min_f)
+
+    return value(Y·prob'[:])
+end
