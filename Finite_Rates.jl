@@ -93,13 +93,18 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
         @constraint(Dual_FW, -w[dim_p+kk]≤z[kk])
     end
 
-    # Constraint of the perturbation
-    # @variable(Dual_FW,γ)
-    # @constraint(Dual_FW,γ≥norm(y))
-    # η = 1e-5
+    # Objective function (original)
+    # @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w))
 
-    # Objective function
-    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w)) # - η*γ
+    #####################################################################
+    # Constraint of the perturbation 
+    @variable(Dual_FW,γ≥0)
+    @constraint(Dual_FW,[γ;y] in Hypatia.EpiNormEuclCone{T}(1+length(y)))
+    η = 1e-5
+
+    # Objective function (perturbed)
+    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w) - η*γ)
+    #####################################################################
 
     # Perform optimization
     optimize!(Dual_FW)
@@ -113,7 +118,6 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # g0     = Z·λ_A - ε*sum(W)
 
     MaxMin = maximum(Y) - minimum(Y)
-    # Varf   = Variance(Dvars,g0)
 
     Hba  = EC_cost(α,D,0.0,T)
     Rate = ObjVal - Hba
@@ -220,6 +224,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         # Finite-size corrections
         Zero = Rate*(1-pK) + Δ_tol
 
+        # GEAT → V
+        Var = (MaxMin^2)/(1-pK)  #Varian_f(Dvars,pK)*(pK^2)
+        One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
         K_exp = (a-1)*(2*log2(dO)+MaxMin*pK)/(2-a)
@@ -231,13 +238,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
 
         # Skip calculations of the variance if the rate is already zero
-        if Rate - Zero - Two - Three < 0.0
-            continue
-        end
-
-        # GEAT → V
-        Var = Variance(Dvars,pK)*(pK^2)
-        One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
+        # if Rate - Zero - Two - Three < 0.0
+        #     continue
+        # end
 
         # Final key rate
         FKRate = Rate - Zero - One - Two - Three
@@ -399,26 +402,32 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
+function Varian_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
 
-    Variance = GenericModel{T}()
-    set_optimizer(Variance, Hypatia.Optimizer{T})
+    Variance_f = GenericModel{T}()
+    set_optimizer(Variance_f, Hypatia.Optimizer{T})
 
-    @variable(Variance,prob[1:length(Dvars)])
-    @constraint(Variance,prob.>=0)
-    @constraint(Variance,sum(prob)==1)
+    @variable(Variance_f,prob[1:length(Dvars)])
+    @constraint(Variance_f,prob.>=0)
+    @constraint(Variance_f,sum(prob)==1)
 
     Max   = maximum(Dvars)
+    
     coeff1 = [(Max - d) for d in Dvars]
 
-    Objf = (sum([prob[c]*coeff1[c]^2 for c in range(length(Dvars))])/(1-pK) 
-            - (Max - sum([prob[c]*Dvars[c] for c in range(length(Dvars))]))^2)
+    Objf = (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
+            - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2)
 
-    @objective(Variance,Min,Objf)
-    optimize!(Variance)
+    @objective(Variance_f,
+        Min,
+        (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
+        - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2))
+    
+    optimize!(Variance_f)
+    solution_summary(Variance_f; verbose=true)
 
     return value(Objf)
 end
