@@ -97,7 +97,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w))
 
     #####################################################################
-    # Constraint of the perturbation 
+    # Constraint of the perturbation (norm that penalizes a large spread)
     @variable(Dual_FW,γ≥0)
     @constraint(Dual_FW,[γ;y] in Hypatia.EpiNormEuclCone{T}(1+length(y)))
     η = 1e-5
@@ -202,20 +202,24 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         
         if mod(jj,5e5)==0
             @printf("Failure\n")
-            return FKRateMax
+            pK = 0
+            return FKRateMax, pK
         end
 
+        ###########################################################
         # We fix a testing ratio here (optimization pending)
-        pK = T(1-0.05) # 5% of the rounds for testing
-        b  = - log(T(1-pK))/log(N)
+        # pK = T(1-0.05) # 5% of the rounds for testing
+        # b  = - log(T(1-pK))/log(N)
+        ###########################################################
 
         ###########################################################
-        # 
-        # A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
+        
+        A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
         # Here we optimize the scaling b wrt the value of b
-        # F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
-        #         +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
-        # b = find_zero(F, (0.0,0.5))
+        F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
+                +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
+        b  = find_zero(F, (0.0,0.5))
+        pK = 1-N^(-b)
 
         #################################################################
 
@@ -254,8 +258,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
                 stalling+=1
                 if stalling>10
                     @printf("  Optimality reached: %.2e \n",FKRate)
+                    @printf("  Optimal testing ratio: %.5f \n", 1-pK)
                     # @printf("%.6e", FKRateMax) 
-                    return FKRateMax
+                    return FKRateMax, pK
                 end
             else
                 stalling=0
@@ -318,7 +323,7 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
     # Prepare outputs
     FILE_OUT = open(NAME_OUT,"a")
-    @printf(FILE_OUT,"N, D, amp, FKR \n")
+    @printf(FILE_OUT,"N, D, amp, pK, FKR \n")
     close(FILE_OUT)
 
     # Read input states
@@ -386,11 +391,11 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
         DualData = FW_Dual_Pert(InDual)
 
         # Calculate finite key
-        FKR  = FiniteKeyRate(N,Epsilons,InDual,DualData)
+        FKR, pK  = FiniteKeyRate(N,Epsilons,InDual,DualData)
 
         # Save results and proceed with next iteration
         FILE_OUT = open(NAME_OUT,"a")
-        @printf(FILE_OUT,"%.2e, %d, %.2f, %.6e \n",N,D,α,FKR)
+        @printf(FILE_OUT,"%.2e, %d, %.2f, %.6f, %.6e \n",N,D,α,pK,FKR)
         close(FILE_OUT)
     end
     
