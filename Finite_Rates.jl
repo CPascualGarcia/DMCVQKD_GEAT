@@ -235,7 +235,6 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        # XXX Substitute here with MaxMinf
         K_exp = (a-1)*(2*log2(dO)+MaxMinf*pK)/(2-a)
         K_num = log(2^(2*log2(dO) + MaxMinf*pK) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
