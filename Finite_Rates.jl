@@ -94,11 +94,12 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     end
 
     # Constraint of the perturbation
+    # @variable(Dual_FW,γ)
     # @constraint(Dual_FW,γ≥norm(y))
     # η = 1e-5
 
     # Objective function
-    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w)) # - γ*η
+    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w)) # - η*γ
 
     # Perform optimization
     optimize!(Dual_FW)
@@ -417,7 +418,7 @@ function Variance(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
             - (Max - sum([prob[c]*Dvars[c] for c in range(length(Dvars))]))^2)
 
     @objective(Variance,Min,Objf)
-    optimize!(Objf)
+    optimize!(Variance)
 
     return value(Objf)
 end
