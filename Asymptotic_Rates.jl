@@ -44,7 +44,12 @@ end
 function integrate(bounds, pars)
     T = eltype(pars)
     problem = Integrals.IntegralProblem(integrand, bounds, pars)
-    sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = Base.rtoldefault(T), abstol = Base.rtoldefault(T))
+    # sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = Base.rtoldefault(T), abstol = Base.rtoldefault(T))
+    if T==Float64
+        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = eps(T), abstol = eps(T))
+    else
+        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = sqrt(eps(T)), abstol = sqrt(eps(T)))
+    end
     return sol.u
 end
 
