@@ -26,7 +26,6 @@ using  JuMP
 using  Printf
 import Hypatia
 import Hypatia.Cones
-import Convex
 import Integrals
 
 
@@ -44,20 +43,16 @@ end
 function integrate(bounds, pars)
     T = eltype(pars)
     problem = Integrals.IntegralProblem(integrand, bounds, pars)
-    # sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = Base.rtoldefault(T), abstol = Base.rtoldefault(T))
-    if T==Float64
-        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = eps(T), abstol = eps(T))
-    else
-        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = sqrt(eps(T)), abstol = sqrt(eps(T)))
-    end
+    tol = T == Float64 ? eps(T) : sqrt(eps(T))
+    sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = tol, abstol = tol)
     return sol.u
 end
 
 function simulated_probabilities(::Type{T}, δ::T, Δ::T, α::T, D::Integer) where {T}
-    α_att = T(0.2)
-    α_eff = T(0.0)
-    ξ = T(0.01)
-    η = 10^(-(α_att*D+α_eff)/T(10))
+    α_att = T(2)/10
+    α_eff = T(0)
+    ξ = T(1)/100
+    η = 10^(-(α_att*D+α_eff)/10)
     p_sim = zeros(T,4,6)
     for x=0:3
         pars = [ξ, η, x, α]
@@ -72,7 +67,7 @@ function simulated_probabilities(::Type{T}, δ::T, Δ::T, α::T, D::Integer) whe
         bounds = ([T(Δ), T(0)], [T(Inf), 2*T(π)])
         p_sim[x+1,6] = integrate(bounds,pars)
     end
-    p_sim /= 4*T(π)*(1+η*ξ/2)
+    p_sim ./= 4*T(π)*(1+η*ξ/2)
     return p_sim
 end
 
@@ -188,7 +183,7 @@ function gkraus(::Type{T}, Nc::Integer) where {T}
 end
 
 function zmap(ρ::AbstractMatrix, Nc::Integer)
-    K = [kron(I(4*(Nc+1)), proj(i,4)) for i=1:4]
+    K = zkraus(Nc)
     return Hermitian(sum(K[i] * ρ * K[i] for i = 1:4))
 end
 
@@ -199,10 +194,10 @@ end
 
 
 function EC_cost(::Type{T},α::T,D::Integer,f::T) where {T}
-    α_att = T(0.2) 
-    α_eff = T(0)  
-    ξ     = T(0.01)
-    η     = 10^(-(α_att*D+α_eff)/10)
+    α_att = T(2)/10
+    α_eff = T(0)
+    ξ = T(1)/100
+    η = 10^(-(α_att*D+α_eff)/10)
     p_EC  = zeros(T,4,4)               # Conditional probability p(z|x)
 
     for x=0:3
@@ -212,7 +207,7 @@ function EC_cost(::Type{T},α::T,D::Integer,f::T) where {T}
             p_EC[x+1,z+1] = integrate(bounds,pars)
         end
     end
-    p_EC /= T(π)*(1+η*ξ/2)
+    p_EC ./= T(π)*(1+η*ξ/2)
     Hba   = -(1+T(f))*p_EC[:]'*log2.(p_EC[:])*T(0.25)
     return Hba
 end
@@ -244,7 +239,7 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T}
         # @constraint(model, p_τAB[x,z] == p_sim[x,z])
     end
 
-    τA = Hermitian(Convex.partialtrace(T(1)*τAB, 2, [4, Nc+1]))
+    τA = partial_trace(T(1)*τAB, 2, [4, Nc+1])
     @constraint(model, τA == alice_part(α)) #this already implies tr(τAB) == 1
 
     G = gkraus(T,Nc)
