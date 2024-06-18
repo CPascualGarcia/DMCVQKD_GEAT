@@ -42,6 +42,7 @@ include("Utils_Finite.jl")
     dim_p::Integer
     α    ::T
     D    ::Int
+    f    ::T
     ε    ::T
     PE_AB::Vector{Matrix{Complex{T}}}
     Λ_AB ::Vector{Matrix{Complex{T}}}
@@ -65,7 +66,7 @@ end
 
 function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat} 
     # Unpack all the required variables
-    @unpack p_τAB,p_sim,dim_p,α,D,ε,PE_AB,Λ_AB,λ_A,∇r = InDual 
+    @unpack p_τAB,p_sim,dim_p,α,D,f,ε,PE_AB,Λ_AB,λ_A,∇r = InDual 
     
     # Prepare convex program
     Dual_FW = GenericModel{T}()
@@ -122,7 +123,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # confused with the spread!)
     MaxMin  = maximum(Y) - minimum(Y)
 
-    Hba  = EC_cost(α,D,0.0,T)
+    Hba  = EC_cost(α,D,f)
     Rate = ObjVal - Hba
 
 
@@ -418,6 +419,7 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
             dim_p,
             α,
             D,
+            f,
             ε,
             PE_AB,
             Λ_AB,

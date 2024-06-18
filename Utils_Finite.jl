@@ -158,7 +158,7 @@ function zkraus(Nc::Integer)
     return K
 end
 
-function EC_cost(α::Real,D::Integer,f::Real,T::DataType=Float64)
+function EC_cost(α::T,D::Integer,f::T) where {T}
     α_att = T(2)/10 
     α_eff = T(0)  #T(3.0)
     ξ     = T(1)/100
