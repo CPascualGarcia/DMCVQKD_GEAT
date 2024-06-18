@@ -158,6 +158,31 @@ function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:A
 end
 
 
+function ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
+    """
+    Note that for this minimization we do not include
+    neither the constant part of the min-tradeoff function
+    (cancels out with the one of the maximum), nor the
+    pre-factor pK (will be added later and is not needed here)
+    """ 
+
+    Min_f = GenericModel{T}()
+    set_optimizer(Min_f, Hypatia.Optimizer{T})
+
+    @variable(Min_f,prob[1:4,1:6])
+    @constraint(Min_f,prob.>=0)
+    @constraint(Min_f,sum(prob[1,:])==T(1/4))
+    @constraint(Min_f,sum(prob[2,:])==T(1/4))
+    @constraint(Min_f,sum(prob[3,:])==T(1/4))
+    @constraint(Min_f,sum(prob[4,:])==T(1/4))
+
+    @objective(Min_f,Min,Dvars·prob'[:])
+    optimize!(Min_f)
+
+    return value(Dvars·prob'[:])
+end
+
+
 function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},DualData::OutputDual{T}) where {T<:AbstractFloat}
     @unpack p_sim  = InDual
     @unpack Dvars  = DualData
@@ -214,34 +239,15 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
             return FKRateMax, pK
         end
 
-        ###########################################################
-        # We fix a testing ratio here (optimization pending)
-        # pK = T(1-0.05) # 5% of the rounds for testing
-        # b  = - log(T(1-pK))/log(N)
-        ###########################################################
-
-        ###########################################################
-        
-        # A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
-        # # Here we optimize the scaling b wrt the value of b
-        # F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
-        #         +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
-        # b  = find_zero(F, (0.0,0.9))
-        # pK = 1-N^(-b)
-
         A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
-        # Here we optimize the scaling wrt probability pK
+        # Here we optimize the probability pK
         F(p) = Rate - A*MaxMin^2 *(2*p /(1-p)^2)*(sqrt(2+MaxMin^2 *(p^2)/(1-p))
-                +log2(2*dO^2 +1))/sqrt(2+(p*MaxMin)^2 /(1-p)) - (Margin_tol2(N,p+eps(T),p_sim,Dvars,ϵ_PE)-Margin_tol2(N,p,p_sim,Dvars,ϵ_PE))/eps(T)
+                +log2(2*dO^2 +1))/sqrt(2+(p*MaxMin)^2 /(1-p)) - (Margin_tol(N,p+eps(T),p_sim,Dvars,ϵ_PE)-Margin_tol(N,p,p_sim,Dvars,ϵ_PE))/eps(T)
         pK  = find_zero(F, (0.1,1-Base.rtoldefault(T)))
         
 
-        #################################################################
-        # pK = 1-N^(-b)
-        # Δ_tol = Margin_tol(N,b,p_sim,Dvars,ϵ_PE)
-
         # Finite-size corrections
-        Zero = Rate*(1-pK) + Margin_tol2(N,pK,p_sim,Dvars,ϵ_PE)
+        Zero = Rate*(1-pK) + Margin_tol(N,pK,p_sim,Dvars,ϵ_PE)
 
         # GEAT → V
         # Var_f = Variance_f(Dvars,pK)
@@ -256,11 +262,6 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         # 2nd order correction
         Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
-
-        # Skip calculations of the variance if the rate is already zero
-        # if Rate - Zero - Two - Three < 1e-4
-        #     continue
-        # end
 
         # Final key rate
         FKRate = Rate - Zero - One - Two - Three
@@ -293,31 +294,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 end
 
 
-function Margin_tol(N::T,b::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T,dder_b=T(0)) where {T<:AbstractFloat}
-
-    # Remark - note that the dual vars are assigned according  
-    #          to a vector ordering p_sim'[:] for the primal
-    Max = maximum(Dvars)
-    Ppoint = p_sim'[:] 
-
-    π_PE = [Ppoint*N^(-b-dder_b);1-sum(Ppoint)*N^(-b-dder_b)]
-    h_PE = [-Max.+Dvars;0]*(N^(b+dder_b) -1)
-    D_PE = abs(maximum(h_PE)-minimum(h_PE))
-
-    # Tolerance margin for PE
-    SumPE = 0
-    for i=1:length(π_PE)-1
-        gi = π_PE[i]*(1-sum(π_PE[1:i]))/(1-sum(π_PE[1:i-1]))
-        ci = h_PE[i] - π_PE[i+1:end]'*h_PE[i+1:end]/(1-sum(π_PE[1:i]))
-        SumPE += gi*ci^2
-    end
-
-    Δ_tol = 2*sqrt(log2(N/ϵ_PE)*SumPE/N) + 3*D_PE*log2(N/ϵ_PE)/N
-    return Δ_tol
-
-end
-
-function Margin_tol2(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where {T<:AbstractFloat}
+function Margin_tol(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where {T<:AbstractFloat}
 
     # Remark - note that the dual vars are assigned according  
     #          to a vector ordering p_sim'[:] for the primal
@@ -340,11 +317,6 @@ function Margin_tol2(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where
     return Δ_tol
 
 end
-
-
-############### Suggested values for the input ###############
-# T = Float64; N = T(5e8); δ = T(2.0); Δ = T(5.0); f = T(0.0); 
-##############################################################
 
 function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
@@ -477,26 +449,3 @@ function Variance_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     return value(Objf)*pK^2
 end
 
-function ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
-    """
-    Note that for this minimization we do not include
-    neither the constant part of the min-tradeoff function
-    (cancels out with the one of the maximum), nor the
-    pre-factor pK (will be added later and is not needed here)
-    """ 
-
-    Min_f = GenericModel{T}()
-    set_optimizer(Min_f, Hypatia.Optimizer{T})
-
-    @variable(Min_f,prob[1:4,1:6])
-    @constraint(Min_f,prob.>=0)
-    @constraint(Min_f,sum(prob[1,:])==T(1/4))
-    @constraint(Min_f,sum(prob[2,:])==T(1/4))
-    @constraint(Min_f,sum(prob[3,:])==T(1/4))
-    @constraint(Min_f,sum(prob[4,:])==T(1/4))
-
-    @objective(Min_f,Min,Dvars·prob'[:])
-    optimize!(Min_f)
-
-    return value(Dvars·prob'[:])
-end
