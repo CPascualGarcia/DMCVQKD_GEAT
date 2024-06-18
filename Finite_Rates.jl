@@ -428,7 +428,7 @@ function Varian_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     Objf = (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
             - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2)
 
-    @objective(Variance_f,Min,Objf)
+    @objective(Variance_f,Max,Objf)
     
     optimize!(Variance_f)
     solution_summary(Variance_f; verbose=true)
