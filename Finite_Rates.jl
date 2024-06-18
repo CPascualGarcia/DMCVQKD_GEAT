@@ -196,7 +196,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
     FKRateMax = T(0) 
     FKRate    = T(-1)
     stalling  = 0
-    minval     = T(a_min-1)
+    minval    = T(a_min-1)
 
     for scale=minval:minval/10:1
         a  = T(1+scale)
