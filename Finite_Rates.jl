@@ -198,8 +198,6 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
     stalling  = 0
     minval    = T(a_min-1)
 
-    #Var_f = Variance_f(Dvars,pK)*(pK^2)
-
     for scale=minval:minval/10:1
         a  = T(1+scale)
         jj+=1
@@ -233,6 +231,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Zero = Rate*(1-pK) + Δ_tol
 
         # GEAT → V
+        # Var_f = Variance_f(T,Dvars,pK)
         Var = (MaxMin^2)/(1-pK)  #Var_f
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
@@ -246,7 +245,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
 
         # Skip calculations of the variance if the rate is already zero
-        # if Rate - Zero - Two - Three < 0.0
+        # if Rate - Zero - Two - Three < 1e-4
         #     continue
         # end
 
