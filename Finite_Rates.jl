@@ -117,6 +117,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     ObjVal = Y·p_sim'[:] + Z·λ_A - ε*sum(W)
     # g0     = Z·λ_A - ε*sum(W)
 
+    # We later multiply this quantity by pK
     MaxMin  = maximum(Y) - minimum(Y)
 
     Hba  = EC_cost(α,D,0.0,T)
@@ -232,7 +233,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         # GEAT → V
         # Var_f = Variance_f(T,Dvars,pK)
-        Var = (MaxMin^2)/(1-pK)  #Var_f
+        Var = (pK^2)*(MaxMin^2)/(1-pK)  #Var_f
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
@@ -418,21 +419,24 @@ function Variance_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     Variance_f = GenericModel{T}()
     set_optimizer(Variance_f, Hypatia.Optimizer{T})
 
-    @variable(Variance_f,prob[1:length(Dvars)])
+    @variable(Variance_f,prob[1:4,1:6])
     @constraint(Variance_f,prob.>=0)
-    @constraint(Variance_f,sum(prob)==1)
+    @constraint(Variance_f,sum(prob[1,:])==T(1/4))
+    @constraint(Variance_f,sum(prob[2,:])==T(1/4))
+    @constraint(Variance_f,sum(prob[3,:])==T(1/4))
+    @constraint(Variance_f,sum(prob[4,:])==T(1/4))
 
     Max   = maximum(Dvars)
     
-    coeff1 = [(Max - d) for d in Dvars]
+    coeff2 = [(Max - d)^2 for d in Dvars]
 
-    Objf = (sum([prob[c]*coeff1[c]^2 for c=1:length(Dvars)])/(1-pK) 
-            - (Max - sum([prob[c]*Dvars[c] for c=1:length(Dvars)]))^2)
+    Objf = ((coeff2[:]·prob'[:])/(1-pK) 
+            - (Max - Dvars·prob'[:])^2)
 
     @objective(Variance_f,Max,Objf)
     
     optimize!(Variance_f)
-    solution_summary(Variance_f; verbose=true)
+    # solution_summary(Variance_f; verbose=true)
 
     return value(Objf)*pK^2
 end
