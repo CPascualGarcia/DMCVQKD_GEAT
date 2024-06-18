@@ -10,19 +10,15 @@ end
 
 function integrate(bounds,pars,T::DataType=Float64)
     problem = Integrals.IntegralProblem(integrand,bounds,pars)
-    sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = Base.rtoldefault(T), abstol = Base.rtoldefault(T))
-    if T==Float64
-        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = eps(T), abstol = eps(T))
-    else
-        sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = sqrt(eps(T)), abstol = sqrt(eps(T)))
-    end
+    tol = T == Float64 ? eps(T) : sqrt(eps(T))
+    sol = Integrals.solve(problem, Integrals.HCubatureJL(); reltol = tol, abstol = tol)
     return sol.u
 end
 
 function simulated_probabilities(::Type{T}, δ::Real, Δ::Real, α::Real, D::Integer) where {T}
-    α_att = T(0.2)
-    α_eff = T(0.0)
-    ξ = T(0.01)
+    α_att = T(2)/10
+    α_eff = T(0)
+    ξ = T(1)/100
     η = 10^(-(α_att*D+α_eff)/10)
     p_sim = zeros(T,4,6)
     for x=0:3
@@ -38,7 +34,7 @@ function simulated_probabilities(::Type{T}, δ::Real, Δ::Real, α::Real, D::Int
         bounds = ([T(Δ), T(0)], [T(Inf), 2*T(π)])
         p_sim[x+1,6] = integrate(bounds,pars,T)
     end
-    p_sim /= 4*T(π)*(1+η*ξ/2)
+    p_sim ./= 4*T(π)*(1+η*ξ/2)
     return p_sim
 end
 
@@ -163,9 +159,9 @@ function zkraus(Nc::Integer)
 end
 
 function EC_cost(α::Real,D::Integer,f::Real,T::DataType=Float64)
-    α_att = T(0.2) 
+    α_att = T(2)/10 
     α_eff = T(0)  #T(3.0)
-    ξ     = T(0.01)
+    ξ     = T(1)/100
     η     = 10^(-(α_att*D+α_eff)/10)
     p_EC  = zeros(T,4,4)               # Conditional probability p(z|x)
 
@@ -176,7 +172,7 @@ function EC_cost(α::Real,D::Integer,f::Real,T::DataType=Float64)
             p_EC[x+1,z+1] = integrate(bounds,pars,T)
         end
     end
-    p_EC /= T(π)*(1+η*ξ/2)
+    p_EC ./= T(π)*(1+η*ξ/2)
     Hba   = -(1+T(f))*p_EC[:]'*log2.(p_EC[:])*T(0.25)
     return Hba
 end
