@@ -135,7 +135,7 @@ end
 function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:AbstractFloat}
 
     R  = Double64           # To improve the accuracy of the calculations
-    # R  = BigFloat           # To improve the accuracy of the calculations
+                            # Consider also R = BigFloat
     Nc = Int((dim_τAB-4)/4) # Cutoff size
 
     # Calculate key maps
@@ -261,7 +261,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Two   = (K_num*(2-a)*(a-1)^2)/K_den  
 
         # 2nd order correction
-        Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/T(N)
+        Three = (2*log(1/ϵ_PA) + (Ξ+a*log2(1/ϵ_PE))/(a-1))/N
 
         # Final key rate
         FKRate = Rate - Zero - One - Two - Three

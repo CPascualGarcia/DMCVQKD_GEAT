@@ -149,7 +149,7 @@ function gkraus(::Type{T}, Nc::Integer) where {T}
 end
 
 function zmap(ρ::AbstractMatrix, Nc::Integer)
-    K = [kron(I(4*(Nc+1)), proj(i,4)) for i=1:4]
+    K = zkraus(Nc)
     return Hermitian(sum(K[i] * ρ * K[i] for i = 1:4))
 end
 
