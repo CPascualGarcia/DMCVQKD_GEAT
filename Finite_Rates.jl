@@ -133,7 +133,8 @@ end
 
 function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:AbstractFloat}
 
-    R  = BigFloat           # To improve the accuracy of the calculations
+    R  = Double64           # To improve the accuracy of the calculations
+    # R  = BigFloat           # To improve the accuracy of the calculations
     Nc = Int((dim_τAB-4)/4) # Cutoff size
 
     # Calculate key maps
@@ -220,19 +221,26 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         ###########################################################
         
+        # A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
+        # # Here we optimize the scaling b wrt the value of b
+        # F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
+        #         +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
+        # b  = find_zero(F, (0.0,0.9))
+        # pK = 1-N^(-b)
+
         A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
-        # Here we optimize the scaling b wrt the value of b
-        F(b) = log(N)*(Rate*N^(-b) - A*MaxMin^2 *N^(b)*(sqrt(2+MaxMin^2 *N^b)
-                +log2(2*dO^2 +1))/sqrt(2+MaxMin^2 *N^b)) - (Margin_tol(N,b,p_sim,Dvars,ϵ_PE,eps(T))-Margin_tol(N,b,p_sim,Dvars,ϵ_PE))/eps(T)
-        b  = find_zero(F, (0.0,0.5))
-        pK = 1-N^(-b)
+        # Here we optimize the scaling wrt probability pK
+        F(p) = Rate - A*MaxMin^2 *(2*p /(1-p)^2)*(sqrt(2+MaxMin^2 *(p^2)/(1-p))
+                +log2(2*dO^2 +1))/sqrt(2+(p*MaxMin)^2 /(1-p)) - (Margin_tol2(N,p+eps(T),p_sim,Dvars,ϵ_PE)-Margin_tol2(N,p,p_sim,Dvars,ϵ_PE))/eps(T)
+        pK  = find_zero(F, (0.1,1-Base.rtoldefault(T)))
+        
 
         #################################################################
-
-        Δ_tol = Margin_tol(N,b,p_sim,Dvars,ϵ_PE)
+        # pK = 1-N^(-b)
+        # Δ_tol = Margin_tol(N,b,p_sim,Dvars,ϵ_PE)
 
         # Finite-size corrections
-        Zero = Rate*(1-pK) + Δ_tol
+        Zero = Rate*(1-pK) + Margin_tol2(N,pK,p_sim,Dvars,ϵ_PE)
 
         # GEAT → V
         # Var_f = Variance_f(Dvars,pK)
@@ -308,6 +316,30 @@ function Margin_tol(N::T,b::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T,dder_b=
 
 end
 
+function Margin_tol2(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where {T<:AbstractFloat}
+
+    # Remark - note that the dual vars are assigned according  
+    #          to a vector ordering p_sim'[:] for the primal
+    Max = maximum(Dvars)
+    Ppoint = p_sim'[:] 
+
+    π_PE = [Ppoint*(1-p);1-sum(Ppoint)*(1-p)]
+    h_PE = [-Max.+Dvars;0]*p/(1-p)
+    D_PE = abs(maximum(h_PE)-minimum(h_PE))
+
+    # Tolerance margin for PE
+    SumPE = 0
+    for i=1:length(π_PE)-1
+        gi = π_PE[i]*(1-sum(π_PE[1:i]))/(1-sum(π_PE[1:i-1]))
+        ci = h_PE[i] - π_PE[i+1:end]'*h_PE[i+1:end]/(1-sum(π_PE[1:i]))
+        SumPE += gi*ci^2
+    end
+
+    Δ_tol = 2*sqrt(log2(N/ϵ_PE)*SumPE/N) + 3*D_PE*log2(N/ϵ_PE)/N
+    return Δ_tol
+
+end
+
 
 ############### Suggested values for the input ###############
 # T = Float64; N = T(5e8); δ = T(2.0); Δ = T(5.0); f = T(0.0); 
@@ -351,7 +383,6 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
         Nc      = Int((dim_τAB-4)/4)    # Get photon cutoff
 
         # Prepare the input by enforcing PSDness 
-        #  XXX QUESTION ABOUT ConicQKD -- if the state at the output is neg. how do you compute the log??
         while eigmin(τAB) ≤ 0
             Aux = abs(eigmin(τAB))
             τAB .*= 1-Aux
