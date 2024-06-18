@@ -36,7 +36,7 @@ import Integrals
 include("Utils_Finite.jl")
 
 
-@with_kw struct InputDual{T}
+@with_kw struct InputDual{T<:AbstractFloat}
     p_τAB::Matrix{T}
     p_sim::Matrix{T}
     dim_p::Integer
@@ -118,6 +118,8 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # g0     = Z·λ_A - ε*sum(W)
 
     # We later multiply this quantity by pK
+    # (this is for the variance, not to be
+    # confused with the spread!)
     MaxMin  = maximum(Y) - minimum(Y)
 
     Hba  = EC_cost(α,D,0.0,T)
@@ -129,7 +131,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
 end
 
 
-function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T}
+function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:AbstractFloat}
 
     R  = BigFloat           # To improve the accuracy of the calculations
     Nc = Int((dim_τAB-4)/4) # Cutoff size
@@ -172,8 +174,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         return FKRate_Max
     end
 
-    # Protocol-respecting Min_f and corresponding MaxMinf
-    MaxMinf = maximum(Dvars) - ProtResp_Min_f(T,Dvars)
+    # Protocol-respecting Min_f and corresponding spread
+    # We later ought to multiply it by pK
+    spread_f = maximum(Dvars) - ProtResp_Min_f(Dvars)
 
     #  Function Xi(x)
     if ϵ^2 < eps(T)
@@ -232,13 +235,13 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Zero = Rate*(1-pK) + Δ_tol
 
         # GEAT → V
-        # Var_f = Variance_f(T,Dvars,pK)
+        # Var_f = Variance_f(Dvars,pK)
         Var = (pK^2)*(MaxMin^2)/(1-pK)  #Var_f
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
-        K_exp = (a-1)*(2*log2(dO)+MaxMinf*pK)/(2-a)
-        K_num = log(2^(2*log2(dO) + MaxMinf*pK) + exp(T(2)))^3 * 2^(K_exp)
+        K_exp = (a-1)*(2*log2(dO)+spread_f*pK)/(2-a)
+        K_num = log(2^(2*log2(dO) + spread_f*pK) + exp(T(2)))^3 * 2^(K_exp)
         K_den = 6*log(T(2))*(3-2*a)^3
         Two   = (K_num*(2-a)*(a-1)^2)/K_den  
 
@@ -281,7 +284,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 end
 
 
-function Margin_tol(N::T,b::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T,dder_b=T(0.0)) where {T<:AbstractFloat}
+function Margin_tol(N::T,b::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T,dder_b=T(0)) where {T<:AbstractFloat}
 
     # Remark - note that the dual vars are assigned according  
     #          to a vector ordering p_sim'[:] for the primal
@@ -411,7 +414,7 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Variance_f(::Type{T},Dvars::Array{T},pK::T) where {T}
+function Variance_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
@@ -441,7 +444,7 @@ function Variance_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     return value(Objf)*pK^2
 end
 
-function ProtResp_Min_f(::Type{T},Dvars::Array{T}) where {T}
+function ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
     """
     Note that for this minimization we do not include
     neither the constant part of the min-tradeoff function
