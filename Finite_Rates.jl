@@ -198,6 +198,8 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
     stalling  = 0
     minval    = T(a_min-1)
 
+    #Var_f = Variance_f(Dvars,pK)*(pK^2)
+
     for scale=minval:minval/10:1
         a  = T(1+scale)
         jj+=1
@@ -231,7 +233,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Zero = Rate*(1-pK) + Δ_tol
 
         # GEAT → V
-        Var = (MaxMin^2)/(1-pK)  #Varian_f(Dvars,pK)*(pK^2)
+        Var = (MaxMin^2)/(1-pK)  #Var_f
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
@@ -409,7 +411,7 @@ end
 #################### IN PROGRESS ########################
 #########################################################
 
-function Varian_f(::Type{T},Dvars::Array{T},pK::T) where {T}
+function Variance_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     # NOTE THAT the actual optimization of the variance includes
     # the pre-factor pK. Here we remove it for convenience, and 
     # add it in the main text
@@ -433,7 +435,7 @@ function Varian_f(::Type{T},Dvars::Array{T},pK::T) where {T}
     optimize!(Variance_f)
     solution_summary(Variance_f; verbose=true)
 
-    return value(Objf)
+    return value(Objf)*pK^2
 end
 
 function ProtResp_Min_f(::Type{T},Dvars::Array{T}) where {T}
