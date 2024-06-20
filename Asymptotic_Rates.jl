@@ -100,9 +100,9 @@ end
 
 function sinkpi4(::Type{T}, k::Integer) where {T} #computes sin(k*π/4) with high precision
     if mod(k,4) == 0
-        return 0
+        return T(0)
     else
-        signal = (-1)^div(k,4,RoundDown)
+        signal = T((-1)^div(k,4,RoundDown))
         if mod(k,2) == 0
             return signal
         else
@@ -253,8 +253,7 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T}
     blocks = [(i-1)*block_size+1:i*block_size for i=1:4]
     
     vec_dim = Cones.svec_length(Complex,dim_τAB)
-    τAB_vec = Vector{GenericAffExpr{T, GenericVariableRef{T}}}(undef, vec_dim)    
-    Cones._smat_to_svec_complex!(τAB_vec, τAB, sqrt(T(2)))
+    τAB_vec = svec(τAB_vec, Complex{T})
 
     @variable(model, h)
     @objective(model, Min, h / log(T(2)))
