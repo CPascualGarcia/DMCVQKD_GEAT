@@ -241,7 +241,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
         # Here we optimize the probability pK
-        F(p) = Rate - A*MaxMin^2 *(2*p /(1-p)^2)*(sqrt(2+MaxMin^2 *(p^2)/(1-p))
+        F(p) = Rate - A*MaxMin^2 *(p*(2-p) /(1-p)^2)*(sqrt(2+MaxMin^2 *(p^2)/(1-p))
                 +log2(2*dO^2 +1))/sqrt(2+(p*MaxMin)^2 /(1-p)) - (Margin_tol(N,p+eps(T),p_sim,Dvars,ϵ_PE)-Margin_tol(N,p,p_sim,Dvars,ϵ_PE))/eps(T)
         pK  = find_zero(F, (0.1,1-Base.rtoldefault(T)))
         
