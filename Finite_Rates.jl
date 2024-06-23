@@ -45,8 +45,8 @@ include("Utils_Finite.jl")
     f    ::T
     ε    ::T
     PE_AB::Vector{Matrix{Complex{T}}}
-    Λ_AB ::Vector{Matrix{Complex{T}}}
-    λ_A  ::Vector{T}
+    Θ_AB ::Vector{Matrix{Complex{T}}}
+    θ_A  ::Vector{T}
     ∇r   ::Hermitian{Complex{T},Matrix{Complex{T}}}
 end
 
@@ -66,7 +66,7 @@ end
 
 function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat} 
     # Unpack all the required variables
-    @unpack p_τAB,p_sim,dim_p,α,D,f,ε,PE_AB,Λ_AB,λ_A,∇r = InDual 
+    @unpack p_τAB,p_sim,dim_p,α,D,f,ε,PE_AB,Θ_AB,θ_A,∇r = InDual 
     
     # Prepare convex program
     Dual_FW = GenericModel{T}()
@@ -83,22 +83,22 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # Semidef. constraint
     grad_dim = Cones.svec_length(Complex,size(∇r,1))
     grad_vec = Vector{GenericAffExpr{T, GenericVariableRef{T}}}(undef, grad_dim)    
-    Cones._smat_to_svec_complex!(grad_vec, ∇r -sum(PE_AB.*ν) -sum(Λ_AB.*κ), sqrt(T(2)))
+    Cones._smat_to_svec_complex!(grad_vec, ∇r -sum(PE_AB.*ν) -sum(Θ_AB.*κ), sqrt(T(2)))
     @constraint(Dual_FW,grad_vec in Hypatia.PosSemidefTriCone{T,Complex{T}}(grad_dim))    
 
     # Constraints for the num error
     for xz=1:dim_p
         @constraint(Dual_FW,  ν[xz]≤w[xz])
-        @constraint(Dual_FW, -w[xz]≤y[xz])
+        @constraint(Dual_FW, -w[xz]≤ν[xz])
     end
 
     for i=1:12
         @constraint(Dual_FW, κ[i]≤w[dim_p+i])
-        @constraint(Dual_FW, -w[dim_p+i]≤z[i])
+        @constraint(Dual_FW, -w[dim_p+i]≤κ[i])
     end
 
     # Objective function (original)
-    # @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w))
+    # @objective(Dual_FW,Max,ν·p_sim'[:] + κ·θ_A - ε*sum(w))
 
     #####################################################################
     # Constraint of the perturbation (norm that penalizes a large spread)
@@ -107,7 +107,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     η = 1e-5
 
     # Objective function (perturbed)
-    @objective(Dual_FW,Max,y·p_sim'[:] + z·λ_A - ε*sum(w) - η*γ)
+    @objective(Dual_FW,Max,ν·p_sim'[:] + z·θ_A - ε*sum(w) - η*γ)
     #####################################################################
 
     # Perform optimization
@@ -382,8 +382,8 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
         # Calculate operators at the constraints
         PE_AB = constraint_operators(T,δ,Δ,Nc)
 
-        # Get the tomography
-        Λ_AB, λ_A = alice_tomography(T,α,Nc)
+        # Get the virtual tomography
+        Θ_AB, θ_A = alice_tomography(T,α,Nc)
 
         # Calculate gradient
         ∇r = Grad_ObjF(T,τAB,dim_τAB)
@@ -398,8 +398,8 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
             f,
             ε,
             PE_AB,
-            Λ_AB,
-            λ_A,
+            Θ_AB,
+            θ_A,
             ∇r
         )
 

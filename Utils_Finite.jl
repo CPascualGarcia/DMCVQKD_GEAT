@@ -188,10 +188,10 @@ function constraint_operators(::Type{T},δ::Real,Δ::Real,Nc::Integer) where {T<
 end
 
 function alice_tomography(::Type{T},α::Real,Nc::Int) where {T<:AbstractFloat}
-    Λ_A  = diagm(ones(T,16))
-    Λ_AB = [kron(Hmat(Λ_A[5+x,:]),I(Nc+1)) for x=0:11]
+    Θ_A  = diagm(ones(T,16))
+    Θ_AB = [kron(Hmat(Θ_A[5+x,:]),I(Nc+1)) for x=0:11]
     ρ_A  = alice_part(α)
-    λ_AB = [real(ρ_A·Hmat(Λ_A[5+x,:])) for x=0:11]
+    θ_AB = [real(ρ_A·Hmat(Θ_A[5+x,:])) for x=0:11]
 
-    return Λ_AB, λ_AB
+    return Θ_AB, θ_AB
 end
