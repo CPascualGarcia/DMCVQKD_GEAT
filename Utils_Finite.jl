@@ -15,7 +15,7 @@ function integrate(bounds,pars,T::DataType=Float64)
     return sol.u
 end
 
-function simulated_probabilities(::Type{T}, δ::Real, Δ::Real, α::Real, D::Integer) where {T}
+function simulated_probabilities(::Type{T}, δ::Real, Δ::Real, α::Real, D::Integer) where {T<:AbstractFloat}
     α_att = T(2)/10
     α_eff = T(0)
     ξ = T(1)/100
@@ -76,7 +76,7 @@ function alice_part(α::Real)
     ρ *= 0.25
 end
 
-function sinkpi4(::Type{T}, k::Integer) where {T} #computes sin(k*π/4) with high precision
+function sinkpi4(::Type{T}, k::Integer) where {T<:AbstractFloat} #computes sin(k*π/4) with high precision
     if mod(k,4) == 0
         return 0
     else
@@ -89,7 +89,7 @@ function sinkpi4(::Type{T}, k::Integer) where {T} #computes sin(k*π/4) with hig
     end
 end
 
-function key_basis(::Type{T}, Nc::Integer) where {T}
+function key_basis(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
     R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:3]
     for z = 0:3
         for n=0:Nc
@@ -108,7 +108,7 @@ function key_basis(::Type{T}, Nc::Integer) where {T}
 end
 
 
-function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T}
+function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloat}
     R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:5]
     for z = 0:3
         for n=0:Nc
@@ -131,18 +131,18 @@ function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T}
 end
 
 
-function constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::Real, Δ::Real, Nc::Integer) where {T}
+function constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::Real, Δ::Real, Nc::Integer) where {T<:AbstractFloat}
     R_B = test_basis(T,δ,Δ,Nc)
     bases_AB = [kron(proj(x+1,4),R_B[z+1]) for x=0:3, z=0:5]
     return real(dot.(Ref(ρ),bases_AB))
 end
 
-function gmap(::Type{T}, ρ::AbstractMatrix, Nc::Integer) where {T}
+function gmap(::Type{T}, ρ::AbstractMatrix, Nc::Integer) where {T<:AbstractFloat}
     V = gkraus(T,Nc)
     return Hermitian(V * ρ * V')
 end
 
-function gkraus(::Type{T}, Nc::Integer) where {T}
+function gkraus(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
     sqrtbasis = sqrt.(key_basis(T,Nc))
     V = sum( kron(I(4),sqrtbasis[i],ket(i,4)) for i = 1:4)
     return V
@@ -158,7 +158,7 @@ function zkraus(Nc::Integer)
     return K
 end
 
-function EC_cost(α::T,D::Integer,f::T) where {T}
+function EC_cost(α::T,D::Integer,f::T) where {T<:AbstractFloat}
     α_att = T(2)/10 
     α_eff = T(0)  #T(3.0)
     ξ     = T(1)/100
@@ -177,7 +177,7 @@ function EC_cost(α::T,D::Integer,f::T) where {T}
     return Hba
 end
 
-function constraint_operators(::Type{T},δ::Real,Δ::Real,Nc::Integer) where {T}
+function constraint_operators(::Type{T},δ::Real,Δ::Real,Nc::Integer) where {T<:AbstractFloat}
     R_B = test_basis(T,δ,Δ,Nc)
 
     PE_AB = Vector{Matrix{Complex{T}}}(undef,0)
@@ -187,7 +187,7 @@ function constraint_operators(::Type{T},δ::Real,Δ::Real,Nc::Integer) where {T}
     return PE_AB
 end
 
-function alice_tomography(::Type{T},α::Real,Nc::Int) where {T}
+function alice_tomography(::Type{T},α::Real,Nc::Int) where {T<:AbstractFloat}
     Λ_A  = diagm(ones(T,16))
     Λ_AB = [kron(Hmat(Λ_A[5+x,:]),I(Nc+1)) for x=0:11]
     ρ_A  = alice_part(α)
