@@ -107,7 +107,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     η = 1e-5
 
     # Objective function (perturbed)
-    @objective(Dual_FW,Max,ν·p_sim'[:] + z·θ_A - ε*sum(w) - η*γ)
+    @objective(Dual_FW,Max,ν·p_sim'[:] + κ·θ_A - ε*sum(w) - η*γ)
     #####################################################################
 
     # Perform optimization
@@ -118,7 +118,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     Κ      = value.(κ)
     W      = value.(w)
 
-    ObjVal = Dvars·p_sim'[:] + Κ·λ_A - ε*sum(W)
+    ObjVal = Dvars·p_sim'[:] + Κ·θ_A - ε*sum(W)
 
     # We later multiply this quantity by pK
     # (this is for the variance, not to be
