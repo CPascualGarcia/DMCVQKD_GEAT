@@ -320,8 +320,8 @@ function Instance(Nc::Integer,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     ### DATA OF OUTPUTS
     ############################################
 
-    NAME_RATE   = "CRate_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
-    NAME_PRIMAL = "CPrimal_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
+    NAME_RATE   = "Rate_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
+    NAME_PRIMAL = "Primal_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
     
     NAMES       = [NAME_RATE,NAME_PRIMAL]
 

@@ -73,25 +73,28 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     set_optimizer(Dual_FW, Hypatia.Optimizer{T})
 
     # Set variables
-    @variable(Dual_FW,y[1:dim_p])
-    @variable(Dual_FW,w[1:dim_p+12])
-    @variable(Dual_FW,z[1:12])
+    @variable(Dual_FW,ν[1:dim_p])
+    @variable(Dual_FW,κ[1:12])
+    # Extra variables to bound num error
+    # Cf. Winnick et al. Th.3
+    @variable(Dual_FW,w[1:dim_p+12]) 
+    
 
     # Semidef. constraint
     grad_dim = Cones.svec_length(Complex,size(∇r,1))
     grad_vec = Vector{GenericAffExpr{T, GenericVariableRef{T}}}(undef, grad_dim)    
-    Cones._smat_to_svec_complex!(grad_vec, ∇r -sum(PE_AB.*y) -sum(Λ_AB.*z), sqrt(T(2)))
+    Cones._smat_to_svec_complex!(grad_vec, ∇r -sum(PE_AB.*ν) -sum(Λ_AB.*κ), sqrt(T(2)))
     @constraint(Dual_FW,grad_vec in Hypatia.PosSemidefTriCone{T,Complex{T}}(grad_dim))    
 
     # Constraints for the num error
-    for jj=1:dim_p
-        @constraint(Dual_FW,  y[jj]≤w[jj])
-        @constraint(Dual_FW, -w[jj]≤y[jj])
+    for xz=1:dim_p
+        @constraint(Dual_FW,  ν[xz]≤w[xz])
+        @constraint(Dual_FW, -w[xz]≤y[xz])
     end
 
-    for kk=1:12
-        @constraint(Dual_FW, z[kk]≤w[dim_p+kk])
-        @constraint(Dual_FW, -w[dim_p+kk]≤z[kk])
+    for i=1:12
+        @constraint(Dual_FW, κ[i]≤w[dim_p+i])
+        @constraint(Dual_FW, -w[dim_p+i]≤z[i])
     end
 
     # Objective function (original)
@@ -100,7 +103,7 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     #####################################################################
     # Constraint of the perturbation (norm that penalizes a large spread)
     @variable(Dual_FW,γ≥0)
-    @constraint(Dual_FW,[γ;y] in Hypatia.EpiNormEuclCone{T}(1+length(y)))
+    @constraint(Dual_FW,[γ;ν] in Hypatia.EpiNormEuclCone{T}(1+length(ν)))
     η = 1e-5
 
     # Objective function (perturbed)
@@ -111,23 +114,22 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     optimize!(Dual_FW)
 
     # Extract numerical values
-    Y  = value.(y)
-    Z  = value.(z)
-    W  = value.(w)
+    Dvars  = value.(ν)
+    Κ      = value.(κ)
+    W      = value.(w)
 
-    ObjVal = Y·p_sim'[:] + Z·λ_A - ε*sum(W)
-    # g0     = Z·λ_A - ε*sum(W)
+    ObjVal = Dvars·p_sim'[:] + Κ·λ_A - ε*sum(W)
 
     # We later multiply this quantity by pK
     # (this is for the variance, not to be
     # confused with the spread!)
-    MaxMin  = maximum(Y) - minimum(Y)
+    MaxMin  = maximum(Dvars) - minimum(Dvars)
 
     Hba  = EC_cost(α,D,f)
     Rate = ObjVal - Hba
 
 
-    DualData = OutputDual(Y,MaxMin,Rate,Hba)
+    DualData = OutputDual(Dvars,MaxMin,Rate,Hba)
     return DualData
 end
 
@@ -251,7 +253,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
         # GEAT → V
         # Var_f = Variance_f(Dvars,pK)
-        Var = (pK^2)*(MaxMin^2)/(1-pK)  #Var_f
+        Var = (pK^2)*(MaxMin^2)/(1-pK)  #Var_g
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
@@ -330,8 +332,8 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     Epsilons = Epsilon_Coeffs(T(1e-10),T(1e-10),T(1e-10),T(1e-10))
 
     # Prepare file names
-    NAME_RATE = "CPrimal_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
-    NAME_OUT  = "CFiniteRates_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
+    NAME_RATE = "Primal_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
+    NAME_OUT  = "FiniteRates_f"*string(Int(floor(f*100)))*"D"*string(Int(floor(Δ*10)))*"d"*string(Int(floor(δ*10)))*".csv"
 
     # Prepare outputs
     FILE_OUT = open(NAME_OUT,"a")
@@ -347,9 +349,9 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
         Data = split(chop(readline(FILE_STATES); head=0, tail=0), ',')
 
         # Read data
-        D   = parse(Int,Data[1])
-        α   = parse(T,Data[2])
-        τv  = parse.(T,Data[3:end])
+        D   = parse(Int,Data[1])        # Distance
+        α   = parse(T,Data[2])          # Amplitude
+        τv  = parse.(T,Data[3:end])     # State (vectorized form)
 
         τAB     = Hmat(τv)              # Recompose the matrix
         dim_τAB = size(τAB,1)           # Get dimensions
@@ -373,7 +375,9 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
         Num_error2 = maximum(Hvec(τA-alice_part(α)))
 
         ε = maximum([Num_error1,Num_error2])
-        @printf("Max. numerical error: %.6e \n",ε)
+        if ε > 1e-7 
+            @printf("WARNING! Max. numerical error: %.6e \n",ε)
+        end
 
         # Calculate operators at the constraints
         PE_AB = constraint_operators(T,δ,Δ,Nc)
@@ -444,7 +448,6 @@ function Variance_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
     @objective(Variance_f,Max,Objf)
     
     optimize!(Variance_f)
-    # solution_summary(Variance_f; verbose=true)
 
     return value(Objf)*pK^2
 end
