@@ -19,7 +19,7 @@ the usual 1e-10 value.
 """
 
 
-push!(LOAD_PATH,"Ket/")
+# push!(LOAD_PATH,"Ket/")
 using  Ket # ] add https://github.com/araujoms/Ket.jl.git
 using  SpecialFunctions
 using  LinearAlgebra
