@@ -307,9 +307,8 @@ end
 function Instance(Nc::Integer,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
     ### Friendly reminder of basic parameters
-    # ξ     = 0.01
-    # α_att = 0.2
-
+    # ξ     = 0.01 (excess noise in SNUs)
+    # α_att = 0.2  (attenuation at the fiber in dB/km)
 
     # Change data types if necessary
     δ = T(δ)

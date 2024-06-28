@@ -19,7 +19,6 @@ the usual 1e-10 value.
 """
 
 
-# push!(LOAD_PATH,"Ket/")
 using  Ket # ] add https://github.com/araujoms/Ket.jl.git
 using  SpecialFunctions
 using  LinearAlgebra
@@ -75,11 +74,11 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     # Set variables
     @variable(Dual_FW,ν[1:dim_p])
     @variable(Dual_FW,κ[1:12])
+
     # Extra variables to bound num error
     # Cf. Winnick et al. Th.3
     @variable(Dual_FW,w[1:dim_p+12]) 
     
-
     # Semidef. constraint
     grad_dim = Cones.svec_length(Complex,size(∇r,1))
     grad_vec = Vector{GenericAffExpr{T, GenericVariableRef{T}}}(undef, grad_dim)    
@@ -97,18 +96,16 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
         @constraint(Dual_FW, -w[dim_p+i]≤κ[i])
     end
 
-    # Objective function (original)
-    # @objective(Dual_FW,Max,ν·p_sim'[:] + κ·θ_A - ε*sum(w))
-
-    #####################################################################
     # Constraint of the perturbation (norm that penalizes a large spread)
+    # Valid since we use the same feas. set as the actual minimization, so
+    # the result can only be suboptimal but it reduces the value of the
+    # dual variables (which is useful in the finite-size analysis)
     @variable(Dual_FW,γ≥0)
     @constraint(Dual_FW,[γ;ν] in Hypatia.EpiNormEuclCone{T}(1+length(ν)))
-    η = 1e-5
+    η = 1e-5 # This parameter is purely empyrical
 
     # Objective function (perturbed)
     @objective(Dual_FW,Max,ν·p_sim'[:] + κ·θ_A - ε*sum(w) - η*γ)
-    #####################################################################
 
     # Perform optimization
     optimize!(Dual_FW)
@@ -217,9 +214,9 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
 
     dO = T(4+1) # Dimensions of the key output (4+⟂)
 
-    ##############################
+    #######################################################
     # Grid search for the optimal scaling of the key rounds
-    ##############################
+    #######################################################
 
     # Rough bounds for a
     aux   = N*Rate - 2*log2(1/ϵ_PA)
@@ -242,7 +239,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         end
 
         A = log(T(2))*(a-1)/(4-2*a)     # Aux variable
-        # Here we optimize the probability pK
+        # Here we optimize the probability pK of observing a key generation round
         F(p) = Rate - A*MaxMin^2 *(p*(2-p) /(1-p)^2)*(sqrt(2+MaxMin^2 *(p^2)/(1-p))
                 +log2(2*dO^2 +1))/sqrt(2+(p*MaxMin)^2 /(1-p)) - (Margin_tol(N,p+eps(T),p_sim,Dvars,ϵ_PE)-Margin_tol(N,p,p_sim,Dvars,ϵ_PE))/eps(T)
         pK  = find_zero(F, (0.1,1-Base.rtoldefault(T)))
@@ -252,8 +249,7 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
         Zero = Rate*(1-pK) + Margin_tol(N,pK,p_sim,Dvars,ϵ_PE)
 
         # GEAT → V
-        # Var_f = Variance_f(Dvars,pK)
-        Var = (pK^2)*(MaxMin^2)/(1-pK)  #Var_g
+        Var = (pK^2)*(MaxMin^2)/(1-pK)  # We bound the Var(f) with the infreq. sampling 
         One = (log(T(2))*(a-1)/(4-2*a))*(sqrt(T(2)+ Var)+log2(2*dO^2+1))^2
 
         # GEAT → Ka
@@ -418,37 +414,3 @@ function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
     # Close file with data
     close(FILE_STATES)
 end
-
-#########################################################
-#################### IN PROGRESS ########################
-#########################################################
-
-function Variance_f(Dvars::Array{T},pK::T) where {T<:AbstractFloat}
-    # NOTE THAT the actual optimization of the variance includes
-    # the pre-factor pK. Here we remove it for convenience, and 
-    # add it in the main text
-
-    Variance_f = GenericModel{T}()
-    set_optimizer(Variance_f, Hypatia.Optimizer{T})
-
-    @variable(Variance_f,prob[1:4,1:6])
-    @constraint(Variance_f,prob.>=0)
-    @constraint(Variance_f,sum(prob[1,:])==T(1/4))
-    @constraint(Variance_f,sum(prob[2,:])==T(1/4))
-    @constraint(Variance_f,sum(prob[3,:])==T(1/4))
-    @constraint(Variance_f,sum(prob[4,:])==T(1/4))
-
-    Max   = maximum(Dvars)
-    
-    coeff2 = [(Max - d)^2 for d in Dvars]
-
-    Objf = ((coeff2[:]·prob'[:])/(1-pK) 
-            - (Max - Dvars·prob'[:])^2)
-
-    @objective(Variance_f,Max,Objf)
-    
-    optimize!(Variance_f)
-
-    return value(Objf)*pK^2
-end
-
