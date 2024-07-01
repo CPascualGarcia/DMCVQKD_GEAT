@@ -16,7 +16,7 @@ together with the optimal state (which is necessary for the finite analysis).
 """
 
 using ConicQKD # ] add https://github.com/araujoms/ConicQKD.jl.git
-using Ket # ] add https://github.com/araujoms/Ket.jl.git
+using Ket
 
 
 using  SpecialFunctions

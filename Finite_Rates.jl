@@ -19,7 +19,7 @@ the usual 1e-10 value.
 """
 
 
-using  Ket # ] add https://github.com/araujoms/Ket.jl.git
+using  Ket
 using  SpecialFunctions
 using  LinearAlgebra
 using  DoubleFloats
