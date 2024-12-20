@@ -48,6 +48,13 @@ function integrate(bounds, pars)
     return sol.u
 end
 
+"""
+    simulated_probabilities(::Type{T}, δ::T, Δ::T, α::T, D::Integer) where {T<:AbstractFloat}
+
+Computes the probability distribution for the implementation of the protocol given the
+modulation (δ, Δ) of the implementation, the amplitude of the coherent states α and 
+the distance D between Alice and Bob.
+"""
 function simulated_probabilities(::Type{T}, δ::T, Δ::T, α::T, D::Integer) where {T<:AbstractFloat}
     α_att = T(2)/10
     α_eff = T(0)
@@ -71,10 +78,11 @@ function simulated_probabilities(::Type{T}, δ::T, Δ::T, α::T, D::Integer) whe
     return p_sim
 end
 
-penalty_prob(p_sim) = sum(p_sim[:,6])
+"""
+    Hvec(H::AbstractMatrix)
 
-penalization_term(v) = sqrt(2*v-v^2)*2 + (1+sqrt(2*v-v^2))*binary_entropy(sqrt(2*v-v^2)/(1+sqrt(2*v-v^2)))
-
+Converts a Hermitian matrix H into a vector [diag(H);sqrt(2)*Re(Upp(H));sqrt(2)*Im(Upp(H))].
+"""
 function Hvec(H::AbstractMatrix)
     if  ~ishermitian(H)
         error("Wrong input! The matrix should be Hermitian!")
@@ -87,6 +95,12 @@ function Hvec(H::AbstractMatrix)
     return Hv
 end
 
+"""
+    alice_part(α::Real)
+
+Computes Alice's marginal state.
+Tr{B} [τ{AB}] =  ∑_{j,k} |j><k| <α i^k|α i^j>/4
+"""
 function alice_part(α::Real)
     ρ = Hermitian(ones(Complex{typeof(α)},4,4))
     ρ.data[1,2] = exp(-(1+im)*α^2)
@@ -98,7 +112,12 @@ function alice_part(α::Real)
     ρ *= 0.25
 end
 
-function sinkpi4(::Type{T}, k::Integer) where {T<:AbstractFloat} #computes sin(k*π/4) with high precision
+"""
+    sinkpi4(::Type{T}, k::Integer) where {T<:AbstractFloat}
+
+Computes sin(k*π/4) with high precision.
+"""
+function sinkpi4(::Type{T}, k::Integer) where {T<:AbstractFloat}
     if mod(k,4) == 0
         return T(0)
     else
@@ -111,6 +130,11 @@ function sinkpi4(::Type{T}, k::Integer) where {T<:AbstractFloat} #computes sin(k
     end
 end
 
+"""
+    key_basis(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
+
+Computes the basis of operators for the key map.
+"""
 function key_basis(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
     R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:3]
     for z = 0:3
@@ -129,7 +153,12 @@ function key_basis(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
     return R
 end
 
+"""
+    test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloat}
 
+Computes the basis of operators for the parameter estimation map,
+according to the chosen modulation.
+"""
 function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloat}
     R = [Hermitian(zeros(Complex{T},Nc+1,Nc+1)) for z=0:5]
     for z = 0:3
@@ -152,6 +181,12 @@ function test_basis(::Type{T}, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloa
     return R
 end
 
+"""
+    optimal_amplitude(D::Integer,f::Real)
+
+Optimal amplitude for the coherent states according to the distance
+between Alice and Bob, and the EC efficiency.
+"""
 function optimal_amplitude(D::Integer,f::Real)
     if f==0.05
         amplitudes = [1.05, 1.03, 1.01, 0.99, 0.97, 0.95, 0.94, 0.93, 0.92, 0.91, 0.90, 0.89, 0.88, 0.87, 0.86, 0.85, 0.85, 0.84, 0.83, 0.82, 0.81, 0.81, 0.80, 0.80, 0.79, 0.79, 0.79, 0.78, 0.78, 0.77, 0.76, 0.75, 0.75, 0.74, 0.74, 0.73, 0.73, 0.73, 0.72, 0.72, 0.71]
@@ -165,34 +200,64 @@ function optimal_amplitude(D::Integer,f::Real)
     end
 end    
 
+"""
+    constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloat}
+
+Builds the trace of the state and each of the operators in the test basis
+for Alice and Bob.
+"""
 function constraint_probabilities(::Type{T}, ρ::AbstractMatrix, δ::T, Δ::T, Nc::Integer) where {T<:AbstractFloat}
     R_B = test_basis(T,δ,Δ,Nc)
     bases_AB = [kron(proj(x+1,4),R_B[z+1]) for x=0:3, z=0:5]
     return real(dot.(Ref(ρ),bases_AB))
 end
 
+"""
+    gmap(::Type{T}, ρ::AbstractMatrix, Nc::Integer) where {T<:AbstractFloat}
+
+Quantum channel of the key map.
+"""
 function gmap(::Type{T}, ρ::AbstractMatrix, Nc::Integer) where {T<:AbstractFloat}
     V = gkraus(T,Nc)
     return Hermitian(V * ρ * V')
 end
 
+"""
+    gkraus(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
+
+Isometry corresponding to the key map.
+"""
 function gkraus(::Type{T}, Nc::Integer) where {T<:AbstractFloat}
     sqrtbasis = sqrt.(key_basis(T,Nc))
     V = sum( kron(I(4),sqrtbasis[i],ket(i,4)) for i = 1:4)
     return V
 end
 
+"""
+    zmap(ρ::AbstractMatrix, Nc::Integer)
+
+Quantum channel of the pinching map.
+"""
 function zmap(ρ::AbstractMatrix, Nc::Integer)
     K = zkraus(Nc)
     return Hermitian(sum(K[i] * ρ * K[i] for i = 1:4))
 end
 
+"""
+    zkraus(Nc::Integer)
+
+Pinching map.
+"""
 function zkraus(Nc::Integer)
     K = [kron(I(4 * (Nc + 1)), proj(i, 4)) for i = 1:4]
     return K
 end
 
+"""
+    EC_cost(α::T,D::Integer,f::T) where {T<:AbstractFloat}
 
+Computes the cost of error correction, incorporating the efficiency
+"""
 function EC_cost(α::T,D::Integer,f::T) where {T<:AbstractFloat}
     α_att = T(2)/10
     α_eff = T(0)
@@ -213,7 +278,13 @@ function EC_cost(α::T,D::Integer,f::T) where {T<:AbstractFloat}
 end
 
 
+"""
+    hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:AbstractFloat}
 
+Computes the conditional von Neumann entropy H(B|E) of Bob's raw key
+register given Eve's quantum information. This function performs the
+calculation of said entropy via conic optimization.
+"""
 function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:AbstractFloat}
 
     α = T(optimal_amplitude(D,f))
@@ -221,10 +292,6 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:A
 
     model = GenericModel{T}()
     @variable(model, τAB[1:dim_τAB, 1:dim_τAB], Hermitian)
-    
-    # One may set a time limit
-    # minutes = 15
-    # set_time_limit_sec(model, 60*Float64(minutes))
 
     p_τAB = constraint_probabilities(T,τAB,δ,Δ,Nc)
     p_sim = simulated_probabilities(T,δ,Δ,α,D)
@@ -266,7 +333,19 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:A
     return value.(τAB), dual_objective_value(model)
 end
 
+"""
+    CompleteCode(::Type{T},Nc::Integer,δ::T,Δ::T,f::T,D::Integer,NAMES::Vector{String}=[""]) where {T<:AbstractFloat}
 
+Performs the complete computation of the asymptotic secret key rate at a given distance. Takes as inputs \n
+    T   - DataType. Usually Float64
+    Nc  - Value of the cutoff, typically ≥10
+    δ,Δ - Parameters of the modulation, usually 2 and ≥ 4 respectively 
+    f   - Error correction efficienty, take 0 for the Shannon limit or > 0 otherwise 
+    D   - Distance in km 
+    NAMES - a vector of strings of length 2. First string is the name of the rate file 
+            (i.e. asymptotic rate, together with diverse parameters) and the second is 
+            the name of the primal file (i.e. density matrix of the primal solution)
+"""
 function CompleteCode(::Type{T},Nc::Integer,δ::T,Δ::T,f::T,D::Integer,NAMES::Vector{String}=[""]) where {T<:AbstractFloat}
 
     # Compute the relative entropy H(B|E)
@@ -302,8 +381,15 @@ function CompleteCode(::Type{T},Nc::Integer,δ::T,Δ::T,f::T,D::Integer,NAMES::V
 
 end
 
+"""
+    Instance(Nc::Integer,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
-
+Computes the entire series of asymptotic secret key rates at different distances, given the parameters \n
+    T   - DataType. Usually Float64
+    Nc  - Value of the cutoff, typically ≥10
+    δ,Δ - Parameters of the modulation, usually 2 and ≥ 4 respectively 
+    f   - Error correction efficienty, take 0 for the Shannon limit or > 0 otherwise 
+"""
 function Instance(Nc::Integer,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
     ### Friendly reminder of basic parameters
