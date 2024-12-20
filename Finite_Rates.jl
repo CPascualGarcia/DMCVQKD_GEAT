@@ -63,6 +63,11 @@ end
     ϵ_EC ::T
 end
 
+"""
+    FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat} 
+
+Computes the dual problem of the linearized conic problem.
+"""
 function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat} 
     # Unpack all the required variables
     @unpack p_τAB,p_sim,dim_p,α,D,f,ε,PE_AB,Θ_AB,θ_A,∇r = InDual 
@@ -130,7 +135,13 @@ function FW_Dual_Pert(InDual::InputDual{T}) where {T<:AbstractFloat}
     return DualData
 end
 
+"""
+    Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:AbstractFloat}
 
+Calculate the gradient of the objective function at a point τ_AB as
+
+    ∇r(τ_AB) = log(τ_AB) - Z^†[log(Z[τ_AB])]
+"""
 function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:AbstractFloat}
 
     R  = Double64           # To improve the accuracy of the calculations
@@ -181,7 +192,12 @@ function ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
     return value(Dvars·prob'[:])
 end
 
+"""
+    FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},DualData::OutputDual{T}) where {T<:AbstractFloat}
 
+Calculates the final finite secret key rate. This is provided by an optimization in the
+Rényi coefficient via a fine grid, together with an optimal choice for the key round probability pK
+"""
 function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},DualData::OutputDual{T}) where {T<:AbstractFloat}
     @unpack p_sim  = InDual
     @unpack Dvars  = DualData
@@ -291,7 +307,12 @@ function FiniteKeyRate(N::T,Epsilons::Epsilon_Coeffs{T},InDual::InputDual{T},Dua
     end
 end
 
+"""
+    Margin_tol(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where {T<:AbstractFloat}
 
+Computes the margin of tolerance δ for the statistical distribution via a multinoulli
+finite estimator, and a margin of confidence ϵ_PE
+"""
 function Margin_tol(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where {T<:AbstractFloat}
 
     # Remark - note that the dual vars are assigned according  
@@ -316,6 +337,15 @@ function Margin_tol(N::T,p::T,p_sim::Matrix{T},Dvars::Vector{T},ϵ_PE::T) where 
 
 end
 
+"""
+    FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
+
+Computes the entire series of finite secret key rates at different distances, given the parameters \n
+    N   - No. of rounds
+    δ,Δ - Parameters of the modulation, usually 2 and ≥ 4 respectively 
+    f   - Error correction efficienty, take 0 for the Shannon limit or > 0 otherwise 
+    T   - DataType. Usually Float64 for distances below 100 km, and Double64 otherwise
+"""
 function FiniteInstance(N::Real,δ::Real,Δ::Real,f::Real,T::DataType=Float64)
 
     # Reassign data types if necessary
