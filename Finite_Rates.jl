@@ -32,9 +32,30 @@ import Hypatia.Cones
 import Convex
 import Integrals
 
-include("Utils_Finite.jl")
+include("Utils.jl")
 
 
+##########################################################
+### DATA STRUCTURES
+##########################################################
+
+"""
+    InputDual{T<:AbstractFloat}
+
+Structure that gathers all the relevant parameters to perform the
+maximization of the linearized dual. \n
+    p_τAB - Probabilities according to the primal optimal density matrix
+    p_sim - Simulated probabilities
+    dim_p - Length of p_sim
+    α     - Amplitude of coherent states
+    D     - Distance
+    f     - Error correction efficiency
+    ε     - Max numerical error in the constraints
+    PE_AB - Pauli error matrices
+    Θ_AB  - Tomography matrices of Alice, tensor identity on Bob
+    θ_A   - Tomography matrices of Alice
+    ∇r    - Gradient of the primal objective function
+"""
 @with_kw struct InputDual{T<:AbstractFloat}
     p_τAB::Matrix{T}
     p_sim::Matrix{T}
@@ -49,6 +70,15 @@ include("Utils_Finite.jl")
     ∇r   ::Hermitian{Complex{T},Matrix{Complex{T}}}
 end
 
+"""
+    OutputDual{T<:AbstractFloat}
+
+Structure that collects the outputs of the linearized dual. \n
+    Dvars  - Dual variables
+    MaxMin - Spread of dual variables
+    Rate   - Secret key rate
+    Hba    - EC cost
+"""
 @with_kw struct OutputDual{T<:AbstractFloat}
     Dvars ::Array{T}
     MaxMin::T
@@ -56,6 +86,15 @@ end
     Hba   ::T
 end
 
+"""
+    Epsilon_Coeffs{T<:AbstractFloat}
+
+Structure that holds all the confidence margins for the finite key analysis. \n
+    ϵ    - Smoothing of the min-entropy.
+    ϵ_PE - Margin of confidence for parameter estimation.
+    ϵ_PA - Margin of confidence for privacy amplification.
+    ϵ_EC - Correctness of the error correction.
+"""
 @with_kw struct Epsilon_Coeffs{T<:AbstractFloat}
     ϵ    ::T
     ϵ_PE ::T
@@ -167,7 +206,12 @@ function Grad_ObjF(::Type{T},τAB::AbstractMatrix,dim_τAB::Integer) where {T<:A
     return ∇r
 end
 
+"""
+    ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
 
+Calculates the minimum of the min-tradeoff function according to
+a protocol-respecting structure
+"""
 function ProtResp_Min_f(Dvars::Array{T}) where {T<:AbstractFloat}
     """
     Note that for this minimization we do not include
