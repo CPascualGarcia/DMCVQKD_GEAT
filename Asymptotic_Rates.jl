@@ -59,7 +59,7 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:A
         # @constraint(model, p_τAB[x,z] == p_sim[x,z])
     end
 
-    τA = partial_trace(T(1)*τAB, 2, [4, Nc+1])
+    τA = partial_trace(τAB, 2, [4, Nc+1])
     @constraint(model, τA == alice_part(α)) #this already implies tr(τAB) == 1
 
     G = gkraus(T,Nc)
