@@ -73,7 +73,7 @@ function hbe(::Type{T}, Nc::Integer, δ::T, Δ::T, f::T, D::Integer) where {T<:A
     blocks = [(i-1)*block_size+1:i*block_size for i=1:4]
     
     vec_dim = Cones.svec_length(Complex,dim_τAB)
-    τAB_vec = svec(τAB, Complex{T})
+    τAB_vec = svec(τAB)
 
     @variable(model, h)
     @objective(model, Min, h / log(T(2)))
